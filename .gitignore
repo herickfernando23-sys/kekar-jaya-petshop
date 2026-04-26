@@ -1,0 +1,8 @@
+node_modules/
+build/
+.env
+.env.*
+!.env.frontend.example
+npm-debug.log*
+yarn-error.log*
+.DS_Store
