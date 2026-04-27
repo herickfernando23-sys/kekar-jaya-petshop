@@ -112,7 +112,7 @@ export function Cart() {
           const res = await fetch('http://localhost:5000/orders');
           if (res.ok) {
             const orders = await res.json();
-            const found = orders.find((o) => o.notes === tokenFromLink && o.status === 'pending');
+            const found = orders.find((o: any) => o.notes === tokenFromLink && o.status === 'pending');
             if (found) {
               orderId = String(found.id);
               confirmationToken = found.notes;
