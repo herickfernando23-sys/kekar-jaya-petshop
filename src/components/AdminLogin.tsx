@@ -12,7 +12,7 @@ const AdminLogin = () => {
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (username.trim() === 'admin' && password === 'kekarjaya2024') {
+    if (username.trim() === 'admin' && password === 'jaya2024') {
       localStorage.setItem('adminLoggedIn', 'true');
       localStorage.setItem('loginTimestamp', Date.now().toString());
       navigate('/admin/dashboard');

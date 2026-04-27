@@ -2,21 +2,15 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { X } from 'lucide-react';
 import { getStoredProducts, PRODUCT_STORAGE_KEY, DELETED_PRODUCT_IDS_KEY } from '../data/products';
-import type { Product } from '../data/products';
-
-type EditableVariant = {
-  name: string;
-  price: number;
-  stock: number;
-  image?: string;
-};
+import type { Product, ProductVariant } from '../data/products';
 
 type EditingData = {
   name: string;
   category: string;
   price: number;
   stock: number;
-  variants?: EditableVariant[];
+  image?: string;
+  variants?: ProductVariant[];
 };
 
 type NewProductData = {
@@ -29,6 +23,12 @@ type NewProductData = {
 };
 
 const ADMIN_CUSTOM_CATEGORIES_KEY = 'adminCustomCategories';
+const UNDO_DELETE_WINDOW_MS = 5000;
+const DEFAULT_CATEGORY_KEYS = new Set([
+  'makanan kucing',
+  'pasir kucing',
+  'kandang kucing',
+]);
 
 const AdminDashboard = () => {
   const [products, setProducts] = useState<Product[]>(() => getStoredProducts());
@@ -57,12 +57,59 @@ const AdminDashboard = () => {
   const undoTimerRef = useRef<number | null>(null);
   const productsSectionRef = useRef<HTMLDivElement | null>(null);
   const navigate = useNavigate();
+  const apiBaseUrl = (((import.meta as any).env?.VITE_API_BASE_URL as string) || 'http://localhost:5000')
+    .replace(/\/+$/, '');
+
+  const syncProductsFromServer = async () => {
+    try {
+      const response = await fetch(`${apiBaseUrl}/products?t=${Date.now()}`);
+      if (!response.ok) {
+        return;
+      }
+
+      const data = await response.json();
+      if (!Array.isArray(data)) {
+        return;
+      }
+
+      const mappedProducts: Product[] = data.map((item: any) => ({
+        id: Number(item.id),
+        name: item.name,
+        category: item.category_name || 'Makanan Kucing',
+        price: Number(item.base_price) || 0,
+        stock: Number(item.stock) || 0,
+        description: item.description || '',
+        image: item.image_url || '/images/whiskas.jpg',
+        variants: Array.isArray(item.variants)
+          ? item.variants.map((variant: any) => ({
+              name: variant.name,
+              price: Number(variant.price) || 0,
+              stock: Number(variant.stock) || 0,
+              image: variant.image_url || variant.image,
+            }))
+          : [],
+      }));
+
+      setProducts(mappedProducts);
+      localStorage.setItem(PRODUCT_STORAGE_KEY, JSON.stringify(mappedProducts));
+      localStorage.setItem(DELETED_PRODUCT_IDS_KEY, '[]');
+    } catch {
+      // Keep local data when backend is unavailable.
+    }
+  };
 
   // Listen for product updates from CartContext or other sources
   useEffect(() => {
+    // Hapus cache produk dan ID terhapus setiap kali halaman admin dibuka
+    localStorage.removeItem(PRODUCT_STORAGE_KEY);
+    localStorage.removeItem(DELETED_PRODUCT_IDS_KEY);
+    setProducts([]);
+
     const handleProductsUpdated = () => {
       setProducts(getStoredProducts());
     };
+
+    syncProductsFromServer();
 
     window.addEventListener('products-updated', handleProductsUpdated);
     window.addEventListener('storage', handleProductsUpdated);
@@ -88,14 +135,11 @@ const AdminDashboard = () => {
     return Array.from(uniqueCategories.values()).sort((a, b) => a.localeCompare(b, 'id'));
   }, [products, customCategories]);
 
-  const customCategoryLookup = useMemo(() => {
-    return new Set(customCategories.map((category) => category.trim().toLowerCase()).filter(Boolean));
-  }, [customCategories]);
-
   // Filter products by category
-  const filteredProducts = selectedCategory
-    ? products.filter(p => p.category === selectedCategory)
-    : products;
+  const filteredProducts = (selectedCategory
+    ? products.filter((p) => p.category === selectedCategory)
+    : products
+  ).slice().sort((a, b) => a.id - b.id);
 
   const restoreDeletedProductLocally = (product: Product, index: number) => {
     setProducts((currentProducts) => {
@@ -127,6 +171,8 @@ const AdminDashboard = () => {
   };
 
   const handleEditProduct = (product: Product) => {
+    setIsAddProductOpen(false);
+
     if (editingProduct?.id === product.id) {
       setEditingProduct(null);
       setEditingData(null);
@@ -134,7 +180,7 @@ const AdminDashboard = () => {
       return;
     }
 
-    const initialVariants = product.variants?.map((variant) => ({ ...variant }));
+    const initialVariants = product.variants?.map((variant) => ({ ...variant })) || [];
     const initialStockFromVariants = initialVariants && initialVariants.length > 0
       ? initialVariants.reduce((sum, variant) => sum + variant.stock, 0)
       : product.stock;
@@ -145,6 +191,7 @@ const AdminDashboard = () => {
       category: product.category,
       price: product.price,
       stock: initialStockFromVariants,
+      image: product.image,
       variants: initialVariants
     });
 
@@ -179,30 +226,51 @@ const AdminDashboard = () => {
     setNewCategoryInput('');
   };
 
-  const handleDeleteCategory = (categoryName: string) => {
+  const handleDeleteCategory = async (categoryName: string) => {
     const normalizedCategory = categoryName.trim().toLowerCase();
-    if (!normalizedCategory || !customCategoryLookup.has(normalizedCategory)) return;
+    if (!normalizedCategory) return;
 
-    const fallbackCategory = categories.find(
-      (category) => category.trim().toLowerCase() !== normalizedCategory
-    ) || 'Makanan Kucing';
+    if (DEFAULT_CATEGORY_KEYS.has(normalizedCategory)) {
+      window.alert('Kategori bawaan tidak dapat dihapus.');
+      return;
+    }
 
     const affectedProductsCount = products.filter(
       (product) => product.category.trim().toLowerCase() === normalizedCategory
     ).length;
 
     const confirmMessage = affectedProductsCount > 0
-      ? `Hapus kategori "${categoryName}"? ${affectedProductsCount} produk akan dipindahkan ke "${fallbackCategory}".`
+      ? `Hapus kategori "${categoryName}"? ${affectedProductsCount} produk dalam kategori ini juga akan dihapus.`
       : `Hapus kategori "${categoryName}"?`;
 
     if (!window.confirm(confirmMessage)) return;
 
+    try {
+      const response = await fetch(`${apiBaseUrl}/categories/${encodeURIComponent(categoryName)}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        let message = 'Gagal menghapus kategori di server.';
+        try {
+          const errorBody = await response.json();
+          if (errorBody?.error) {
+            message = errorBody.error;
+          }
+        } catch {
+          // Use default message when server response is not JSON.
+        }
+        throw new Error(message);
+      }
+    } catch (error: any) {
+      window.alert(error?.message || 'Gagal menghapus kategori di server.');
+      return;
+    }
+
     if (affectedProductsCount > 0) {
-      const updatedProducts = products.map((product) => (
-        product.category.trim().toLowerCase() === normalizedCategory
-          ? { ...product, category: fallbackCategory }
-          : product
-      ));
+      const updatedProducts = products.filter(
+        (product) => product.category.trim().toLowerCase() !== normalizedCategory
+      );
 
       setProducts(updatedProducts);
       localStorage.setItem(PRODUCT_STORAGE_KEY, JSON.stringify(updatedProducts));
@@ -213,8 +281,14 @@ const AdminDashboard = () => {
           return current;
         }
 
-        return { ...current, category: fallbackCategory };
+        return null;
       });
+
+      setEditingProduct((current) => (
+        current && current.category.trim().toLowerCase() === normalizedCategory
+          ? null
+          : current
+      ));
     }
 
     const updatedCustomCategories = customCategories.filter(
@@ -230,7 +304,7 @@ const AdminDashboard = () => {
 
     setNewProduct((current) => (
       current.category.trim().toLowerCase() === normalizedCategory
-        ? { ...current, category: fallbackCategory }
+        ? { ...current, category: 'Makanan Kucing' }
         : current
     ));
   };
@@ -251,7 +325,7 @@ const AdminDashboard = () => {
     };
 
     try {
-      const response = await fetch('http://localhost:5000/products', {
+      const response = await fetch(`${apiBaseUrl}/products`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -311,13 +385,81 @@ const AdminDashboard = () => {
     }
   };
 
+  const deleteProductOnServer = async (targetProductId: number) => {
+    const response = await fetch(`${apiBaseUrl}/products/${targetProductId}`, {
+      method: 'DELETE',
+    });
+
+    // If product is already gone on server, treat it as success.
+    if (response.status === 404) {
+      return;
+    }
+
+    if (!response.ok) {
+      let message = 'Gagal menghapus produk di server.';
+      try {
+        const errorBody = await response.json();
+        if (errorBody?.error) {
+          message = errorBody.error;
+        }
+      } catch {
+        // Use default message if response is not JSON.
+      }
+      throw new Error(message);
+    }
+  };
+
+  const uploadImageFile = async (file: File): Promise<string> => {
+    const formData = new FormData();
+    formData.append('image', file);
+
+    const response = await fetch(`${apiBaseUrl}/upload-image`, {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!response.ok) {
+      let message = 'Gagal upload gambar ke server.';
+      try {
+        const errorBody = await response.json();
+        if (errorBody?.error) {
+          message = errorBody.error;
+        }
+      } catch {
+        // Use default message if response is not JSON.
+      }
+      throw new Error(message);
+    }
+
+    const result = await response.json();
+    if (!result?.imageUrl || typeof result.imageUrl !== 'string') {
+      throw new Error('Respons upload gambar tidak valid.');
+    }
+
+    return result.imageUrl;
+  };
+
   const handleDeleteProduct = async (productId: number) => {
     const confirmed = window.confirm('Yakin ingin menghapus produk ini?');
     if (!confirmed) return;
 
     if (undoDeletedProduct) {
-      window.alert('Selesaikan dulu undo hapus sebelumnya (klik Undo atau tunggu 10 detik).');
-      return;
+      const pendingDelete = undoDeletedProduct;
+
+      if (undoTimerRef.current !== null) {
+        window.clearTimeout(undoTimerRef.current);
+        undoTimerRef.current = null;
+      }
+
+      try {
+        await deleteProductOnServer(pendingDelete.product.id);
+        setUndoDeletedProduct(null);
+      } catch (error: any) {
+        restoreDeletedProductLocally(pendingDelete.product, pendingDelete.index);
+        setUndoDeletedProduct(null);
+        window.alert(error?.message || 'Gagal menghapus produk di server. Produk dikembalikan ke daftar.');
+        return;
+      }
     }
 
     const index = products.findIndex((product) => product.id === productId);
@@ -330,7 +472,7 @@ const AdminDashboard = () => {
     );
     deletedIds.add(productId);
 
-    // Optimistic remove in UI first, then commit hard delete after 15s unless user undoes.
+    // Optimistic remove in UI first, then commit hard delete after 5s unless user undoes.
     setProducts(updatedProducts);
     localStorage.setItem(PRODUCT_STORAGE_KEY, JSON.stringify(updatedProducts));
     localStorage.setItem(DELETED_PRODUCT_IDS_KEY, JSON.stringify(Array.from(deletedIds)));
@@ -345,32 +487,18 @@ const AdminDashboard = () => {
 
     undoTimerRef.current = window.setTimeout(async () => {
       try {
-        const response = await fetch(`http://localhost:5000/products/${productId}`, {
-          method: 'DELETE',
-        });
-
-        if (!response.ok) {
-          let message = 'Gagal menghapus produk di server.';
-          try {
-            const errorBody = await response.json();
-            if (errorBody?.error) {
-              message = errorBody.error;
-            }
-          } catch {
-            // Use default message if response is not JSON.
-          }
-          throw new Error(message);
-        }
-
+        await deleteProductOnServer(productId);
         setUndoDeletedProduct(null);
         undoTimerRef.current = null;
+        // Setelah hapus sukses, fetch ulang data produk dari server
+        await syncProductsFromServer();
       } catch (error: any) {
         restoreDeletedProductLocally(deletedProduct, index);
         setUndoDeletedProduct(null);
         undoTimerRef.current = null;
         window.alert(error?.message || 'Gagal menghapus produk di server. Produk dikembalikan ke daftar.');
       }
-    }, 10000);
+    }, UNDO_DELETE_WINDOW_MS);
   };
 
   const handleUndoDelete = () => {
@@ -385,7 +513,7 @@ const AdminDashboard = () => {
     setUndoDeletedProduct(null);
   };
 
-  const handleSaveProduct = () => {
+  const handleSaveProduct = async () => {
     if (!editingProduct || !editingData) return;
 
     const normalizedVariants = editingData.variants?.map((variant) => ({
@@ -394,29 +522,72 @@ const AdminDashboard = () => {
       price: Math.max(0, variant.price),
     }));
 
-    const finalStock = normalizedVariants && normalizedVariants.length > 0
-      ? normalizedVariants.reduce((sum, variant) => sum + variant.stock, 0)
-      : Math.max(0, editingData.stock);
+    const finalStock = Math.max(0, editingData.stock);
 
-    const updatedProducts = products.map(product =>
-      product.id === editingProduct.id
-        ? {
-            ...product,
-            name: editingData.name,
-            category: editingData.category,
-            price: Math.max(0, editingData.price),
-            stock: finalStock,
-            variants: normalizedVariants,
+    const payload = {
+      name: editingData.name,
+      category: editingData.category,
+      price: Math.max(0, editingData.price),
+      stock: finalStock,
+      description: editingProduct.description,
+      image: editingData.image || editingProduct.image,
+      variants: normalizedVariants,
+    };
+
+    try {
+      const response = await fetch(`${apiBaseUrl}/products/${editingProduct.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        let message = 'Gagal menyimpan perubahan produk.';
+        try {
+          const errorBody = await response.json();
+          if (errorBody?.error) {
+            message = errorBody.error;
           }
-        : product
-    );
+        } catch {
+          // Use default message if response is not JSON.
+        }
+        throw new Error(message);
+      }
 
-    setProducts(updatedProducts);
-    localStorage.setItem(PRODUCT_STORAGE_KEY, JSON.stringify(updatedProducts));
-    window.dispatchEvent(new Event('products-updated'));
-    setEditingProduct(null);
-    setEditingData(null);
-    setEditPanelOffsetTop(0);
+      const updated = await response.json();
+      const updatedProduct: Product = {
+        id: updated.id,
+        name: updated.name,
+        category: updated.category_name || payload.category,
+        price: Number(updated.base_price) || payload.price,
+        stock: Number(updated.stock) || payload.stock,
+        description: updated.description || payload.description,
+        image: updated.image_url || payload.image,
+        variants: Array.isArray(updated.variants)
+          ? updated.variants.map((variant: any) => ({
+              name: variant.name,
+              price: Number(variant.price) || 0,
+              stock: Number(variant.stock) || 0,
+              image: variant.image_url || variant.image,
+            }))
+          : normalizedVariants,
+      };
+
+      const updatedProducts = products.map((product) =>
+        product.id === editingProduct.id ? updatedProduct : product
+      );
+
+      setProducts(updatedProducts);
+      localStorage.setItem(PRODUCT_STORAGE_KEY, JSON.stringify(updatedProducts));
+      window.dispatchEvent(new Event('products-updated'));
+      setEditingProduct(null);
+      setEditingData(null);
+      setEditPanelOffsetTop(0);
+    } catch (error: any) {
+      window.alert(error?.message || 'Gagal menyimpan perubahan produk.');
+    }
   };
 
   const getStockStatus = (stock: number) => {
@@ -492,7 +663,7 @@ const AdminDashboard = () => {
               )}
             </button>
             {categories.map((category) => {
-              const isCustomCategory = customCategoryLookup.has(category.trim().toLowerCase());
+              const canDeleteCategory = !DEFAULT_CATEGORY_KEYS.has(category.trim().toLowerCase());
 
               return (
                 <div key={category} className="flex items-center gap-1">
@@ -509,7 +680,7 @@ const AdminDashboard = () => {
                       <div className="absolute bottom-0 left-0 right-0 h-1 bg-orange-500 rounded-t"></div>
                     )}
                   </button>
-                  {isCustomCategory && (
+                  {canDeleteCategory && (
                     <button
                       type="button"
                       onClick={() => handleDeleteCategory(category)}
@@ -711,11 +882,26 @@ const AdminDashboard = () => {
                     <div>
                       <label className="block text-sm font-semibold text-gray-700 mb-1">Path Gambar</label>
                       <input
-                        type="text"
-                        value={newProduct.image}
-                        onChange={(e) => setNewProduct((prev) => ({ ...prev, image: e.target.value }))}
-                        className="w-full px-3 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500"
-                        placeholder="/images/nama-file.jpg"
+                        type="file"
+                        accept="image/*"
+                        onChange={async (e) => {
+                          const selectedFile = e.target.files?.[0];
+                          if (!selectedFile) return;
+
+                          try {
+                            const imageUrl = await uploadImageFile(selectedFile);
+                            setNewProduct((prev) => ({ ...prev, image: imageUrl }));
+                          } catch (error: any) {
+                            window.alert(error?.message || 'Gagal upload gambar.');
+                          }
+                        }}
+                        className="w-full text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                        style={{
+                          background: 'none',
+                        }}
+                        /* Custom file button style for all browsers */
+                        /* Hide default, show custom */
+                        /* Use a visually hidden input and a styled label if needed for full control */
                       />
                     </div>
                   </div>
@@ -789,6 +975,31 @@ const AdminDashboard = () => {
                   />
                 </div>
 
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-1">
+                    Gambar Produk
+                  </label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={async (e) => {
+                      const selectedFile = e.target.files?.[0];
+                      if (!selectedFile) return;
+
+                      try {
+                        const imageUrl = await uploadImageFile(selectedFile);
+                        setEditingData({
+                          ...editingData,
+                          image: imageUrl,
+                        });
+                      } catch (error: any) {
+                        window.alert(error?.message || 'Gagal upload gambar.');
+                      }
+                    }}
+                    className="w-full text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  />
+                </div>
+
                 {/* Edit Table */}
                 <div>
                   <label className="block text-sm font-bold text-gray-700 mb-2">
@@ -836,78 +1047,165 @@ const AdminDashboard = () => {
                               })
                             }
                             className="w-full px-3 py-2 border-2 border-orange-400 rounded font-bold focus:outline-none focus:ring-2 focus:ring-orange-500"
-                            disabled={Boolean(editingData.variants && editingData.variants.length > 0)}
                           />
-                          {editingData.variants && editingData.variants.length > 0 && (
-                            <p className="mt-1 text-xs text-gray-500">
-                              Total stok otomatis dari stok tiap varian.
-                            </p>
-                          )}
                         </td>
                       </tr>
                     </tbody>
                   </table>
                 </div>
 
-                {editingData.variants && editingData.variants.length > 0 && (
-                  <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-2">
-                      Stok Per Varian (Terpisah)
-                    </label>
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-2">
+                    Varian Produk
+                  </label>
+
+                  <div className="mb-3 flex gap-2 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const nextVariants = [
+                          ...(editingData.variants || []),
+                          {
+                            name: `Varian ${(editingData.variants?.length || 0) + 1}`,
+                            price: Math.max(0, editingData.price),
+                            stock: 0,
+                            image: editingData.image,
+                          },
+                        ];
+
+                        setEditingData({
+                          ...editingData,
+                          variants: nextVariants,
+                        });
+                      }}
+                      className="w-full rounded-xl border-2 px-4 py-3 text-base font-extrabold shadow-md transition-all min-h-14"
+                      style={{
+                        backgroundColor: '#2563eb',
+                        borderColor: '#1e40af',
+                        color: '#ffffff',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '8px',
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = '#1d4ed8';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = '#2563eb';
+                      }}
+                    >
+                      <span style={{ fontSize: '20px', lineHeight: '1' }}>+</span>
+                      <span>Tambah Varian</span>
+                    </button>
+                  </div>
+
+                  {editingData.variants && editingData.variants.length > 0 && (
                     <div className="space-y-2">
                       {editingData.variants.map((variant, index) => (
-                        <div key={`${variant.name}-${index}`} className="grid grid-cols-12 gap-2 items-center bg-gray-50 border border-gray-200 rounded p-2">
-                          <div className="col-span-7 text-sm font-semibold text-gray-700 truncate" title={variant.name}>
-                            {variant.name}
+                        <div key={`variant-${editingProduct?.id}-${index}`} className="bg-gray-50 border border-gray-200 rounded p-2 space-y-2">
+                          <div className="grid grid-cols-12 gap-2 items-center">
+                            <div className="col-span-5">
+                              <input
+                                type="text"
+                                value={variant.name}
+                                onChange={(e) => {
+                                  const nextName = e.target.value;
+                                  setEditingData({
+                                    ...editingData,
+                                    variants: editingData.variants?.map((item, itemIndex) =>
+                                      itemIndex === index ? { ...item, name: nextName } : item
+                                    ),
+                                  });
+                                }}
+                                className="w-full px-2 py-1 border border-orange-300 rounded text-xs font-semibold"
+                                aria-label={`Nama varian ${index + 1}`}
+                              />
+                            </div>
+                            <div className="col-span-3">
+                              <input
+                                type="number"
+                                min="0"
+                                value={variant.price}
+                                onChange={(e) => {
+                                  const price = parseInt(e.target.value, 10) || 0;
+                                  setEditingData({
+                                    ...editingData,
+                                    variants: editingData.variants?.map((item, itemIndex) =>
+                                      itemIndex === index ? { ...item, price } : item
+                                    ),
+                                  });
+                                }}
+                                className="w-full px-2 py-1 border border-orange-300 rounded text-xs font-semibold"
+                                aria-label={`Harga varian ${variant.name}`}
+                              />
+                            </div>
+                            <div className="col-span-3">
+                              <input
+                                type="number"
+                                min="0"
+                                value={variant.stock}
+                                onChange={(e) => {
+                                  const stock = parseInt(e.target.value, 10) || 0;
+                                  const updatedVariants = editingData.variants?.map((item, itemIndex) =>
+                                    itemIndex === index ? { ...item, stock } : item
+                                  );
+
+                                  setEditingData({
+                                    ...editingData,
+                                    variants: updatedVariants,
+                                  });
+                                }}
+                                className="w-full px-2 py-1 border border-orange-300 rounded text-xs font-semibold"
+                                aria-label={`Stok varian ${variant.name}`}
+                              />
+                            </div>
+                            <div className="col-span-1 flex justify-end">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const updatedVariants = (editingData.variants || []).filter(
+                                    (_, itemIndex) => itemIndex !== index
+                                  );
+
+                                  setEditingData({
+                                    ...editingData,
+                                    variants: updatedVariants,
+                                  });
+                                }}
+                                className="px-2 py-1 rounded bg-red-100 text-red-700 hover:bg-red-200 text-xs font-bold"
+                                aria-label={`Hapus varian ${variant.name}`}
+                              >
+                                X
+                              </button>
+                            </div>
                           </div>
-                          <div className="col-span-3">
-                            <input
-                              type="number"
-                              min="0"
-                              value={variant.price}
-                              onChange={(e) => {
-                                const price = parseInt(e.target.value, 10) || 0;
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={async (e) => {
+                              const selectedFile = e.target.files?.[0];
+                              if (!selectedFile) return;
+
+                              try {
+                                const imageUrl = await uploadImageFile(selectedFile);
                                 setEditingData({
                                   ...editingData,
                                   variants: editingData.variants?.map((item, itemIndex) =>
-                                    itemIndex === index ? { ...item, price } : item
+                                    itemIndex === index ? { ...item, image: imageUrl } : item
                                   ),
                                 });
-                              }}
-                              className="w-full px-2 py-1 border border-orange-300 rounded text-xs font-semibold"
-                              aria-label={`Harga varian ${variant.name}`}
-                            />
-                          </div>
-                          <div className="col-span-2">
-                            <input
-                              type="number"
-                              min="0"
-                              value={variant.stock}
-                              onChange={(e) => {
-                                const stock = parseInt(e.target.value, 10) || 0;
-                                const updatedVariants = editingData.variants?.map((item, itemIndex) =>
-                                  itemIndex === index ? { ...item, stock } : item
-                                );
-                                const totalStock = (updatedVariants ?? []).reduce(
-                                  (sum, item) => sum + item.stock,
-                                  0
-                                );
-
-                                setEditingData({
-                                  ...editingData,
-                                  stock: totalStock,
-                                  variants: updatedVariants,
-                                });
-                              }}
-                              className="w-full px-2 py-1 border border-orange-300 rounded text-xs font-semibold"
-                              aria-label={`Stok varian ${variant.name}`}
-                            />
-                          </div>
+                              } catch (error: any) {
+                                window.alert(error?.message || 'Gagal upload gambar varian.');
+                              }
+                            }}
+                            aria-label={`Pilih gambar varian ${variant.name}`}
+                          />
                         </div>
                       ))}
                     </div>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
 
               {/* Buttons - Always visible at bottom - VERY PROMINENT */}
@@ -943,7 +1241,7 @@ const AdminDashboard = () => {
           <div className="bg-gray-900 text-white rounded-xl shadow-2xl px-4 py-3 flex items-center justify-between gap-4">
             <div className="text-sm">
               Produk <span className="font-bold">{undoDeletedProduct.product.name}</span> dihapus.
-              <span className="ml-2 text-gray-300">(Undo dalam 10 detik)</span>
+              <span className="ml-2 text-gray-300">(Undo dalam 5 detik)</span>
             </div>
             <button
               type="button"

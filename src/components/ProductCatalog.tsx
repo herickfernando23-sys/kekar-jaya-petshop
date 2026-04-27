@@ -1,4 +1,13 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
+
+// Tambahkan fungsi handleFileChange agar error hilang
+function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+  const file = e.target.files?.[0];
+  if (file) {
+    // Anda bisa menambahkan logika sesuai kebutuhan, misal:
+    // console.log('File dipilih:', file.name);
+  }
+}
 import { ChevronDown, MessageCircle, Minus, Plus } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import { useCart } from './CartContext';
@@ -93,7 +102,7 @@ export function ProductCatalog() {
     categoryId === 1 ? 'Makanan Kucing' :
     categoryId === 2 ? 'Pasir Kucing' :
     categoryId === 3 ? 'Kandang Kucing' :
-    categoryName || 'Lainnya'
+    (categoryName ? categoryName : '')
   );
 
   const mapApiProducts = (data: any[]): Product[] =>

@@ -4,6 +4,7 @@ const cors = require('cors');
 require('dotenv').config();
 
 const app = express();
+const path = require('path');
 const PORT = process.env.PORT || 5000;
 
 const slugify = (value = '') => value
@@ -15,9 +16,66 @@ const slugify = (value = '') => value
   .replace(/-+/g, '-')
   .replace(/^-|-$/g, '');
 
+const getNextAvailableCategoryId = async (connection) => {
+  const [rows] = await connection.query('SELECT id FROM categories ORDER BY id ASC');
+  let nextId = 1;
+
+  for (const row of rows) {
+    const currentId = Number(row.id);
+    if (currentId !== nextId) {
+      break;
+    }
+    nextId += 1;
+  }
+
+  return nextId;
+};
+
+const ensureCategoryId = async (connection, categoryName) => {
+  const cleanCategory = typeof categoryName === 'string' && categoryName.trim()
+    ? categoryName.trim()
+    : 'Makanan Kucing';
+
+  const [categoryRows] = await connection.query(
+    'SELECT id, name FROM categories WHERE LOWER(name) = LOWER(?) LIMIT 1',
+    [cleanCategory]
+  );
+
+  if (categoryRows.length > 0) {
+    return categoryRows[0].id;
+  }
+
+  const nextCategoryId = await getNextAvailableCategoryId(connection);
+  const categorySlugBase = slugify(cleanCategory) || `kategori-${Date.now()}`;
+  let categorySlug = categorySlugBase;
+  let suffix = 1;
+  while (true) {
+    const [slugRows] = await connection.query(
+      'SELECT id FROM categories WHERE slug = ? LIMIT 1',
+      [categorySlug]
+    );
+    if (slugRows.length === 0) break;
+    suffix += 1;
+    categorySlug = `${categorySlugBase}-${suffix}`;
+  }
+
+  const [insertCategoryResult] = await connection.query(
+    'INSERT INTO categories (id, name, slug) VALUES (?, ?, ?)',
+    [nextCategoryId, cleanCategory, categorySlug]
+  );
+
+  return insertCategoryResult.insertId;
+};
+
 // Middleware
 app.use(cors());
 app.use(express.json());
+// Serve static images
+app.use('/images', express.static(path.join(__dirname, 'public', 'images')));
+
+// Upload image endpoint
+const uploadImageRouter = require('./upload-image');
+app.use(uploadImageRouter);
 
 // MySQL Connection Pool
 const pool = mysql.createPool({
@@ -42,10 +100,11 @@ app.get('/products', async (req, res) => {
 
     // Fetch all products
     const [products] = await connection.query(`
-      SELECT id, category_id, name, slug, description, base_price, stock, image_url, is_active
-      FROM products
-      WHERE is_active = 1
-      ORDER BY id ASC
+      SELECT p.id, p.category_id, c.name AS category_name, p.name, p.slug, p.description, p.base_price, p.stock, p.image_url, p.is_active
+      FROM products p
+      LEFT JOIN categories c ON c.id = p.category_id
+      WHERE p.is_active = 1
+      ORDER BY p.id ASC
     `);
 
     // Fetch all variants grouped by product_id
@@ -106,7 +165,10 @@ app.get('/products/:id', async (req, res) => {
   try {
     const connection = await pool.getConnection();
     const [products] = await connection.query(
-      'SELECT * FROM products WHERE id = ? AND is_active = 1',
+      `SELECT p.*, c.name AS category_name
+       FROM products p
+       LEFT JOIN categories c ON c.id = p.category_id
+       WHERE p.id = ? AND p.is_active = 1`,
       [req.params.id]
     );
 
@@ -160,34 +222,7 @@ app.post('/products', async (req, res) => {
     connection = await pool.getConnection();
     await connection.beginTransaction();
 
-    let categoryId;
-    const [categoryRows] = await connection.query(
-      'SELECT id, name FROM categories WHERE LOWER(name) = LOWER(?) LIMIT 1',
-      [cleanCategory]
-    );
-
-    if (categoryRows.length > 0) {
-      categoryId = categoryRows[0].id;
-    } else {
-      const categorySlugBase = slugify(cleanCategory) || `kategori-${Date.now()}`;
-      let categorySlug = categorySlugBase;
-      let suffix = 1;
-      while (true) {
-        const [slugRows] = await connection.query(
-          'SELECT id FROM categories WHERE slug = ? LIMIT 1',
-          [categorySlug]
-        );
-        if (slugRows.length === 0) break;
-        suffix += 1;
-        categorySlug = `${categorySlugBase}-${suffix}`;
-      }
-
-      const [insertCategoryResult] = await connection.query(
-        'INSERT INTO categories (name, slug) VALUES (?, ?)',
-        [cleanCategory, categorySlug]
-      );
-      categoryId = insertCategoryResult.insertId;
-    }
+    const categoryId = await ensureCategoryId(connection, cleanCategory);
 
     const productSlugBase = slugify(cleanName) || `produk-${Date.now()}`;
     let productSlug = productSlugBase;
@@ -240,6 +275,129 @@ app.post('/products', async (req, res) => {
   }
 });
 
+// PUT /products/:id - Update product data (and variants) in MySQL
+app.put('/products/:id', async (req, res) => {
+  const productId = Number(req.params.id);
+  if (!Number.isInteger(productId) || productId <= 0) {
+    return res.status(400).json({ error: 'ID produk tidak valid' });
+  }
+
+  const {
+    name,
+    category,
+    price,
+    stock,
+    description,
+    image,
+    variants,
+  } = req.body || {};
+
+  if (!name || typeof name !== 'string' || !name.trim()) {
+    return res.status(400).json({ error: 'Nama produk wajib diisi' });
+  }
+
+  const cleanName = name.trim();
+  const cleanCategory = typeof category === 'string' && category.trim()
+    ? category.trim()
+    : 'Makanan Kucing';
+  const cleanDescription = typeof description === 'string' && description.trim()
+    ? description.trim()
+    : 'Produk dari admin';
+  const cleanImage = typeof image === 'string' && image.trim()
+    ? image.trim()
+    : '/images/whiskas.jpg';
+  const cleanStock = Math.max(0, Number(stock) || 0);
+
+  const normalizedVariants = Array.isArray(variants)
+    ? variants
+        .map((variant) => ({
+          name: typeof variant?.name === 'string' ? variant.name.trim() : '',
+          price: Math.max(0, Number(variant?.price) || 0),
+          stock: Math.max(0, Number(variant?.stock) || 0),
+          image: typeof variant?.image === 'string' && variant.image.trim()
+            ? variant.image.trim()
+            : cleanImage,
+        }))
+        .filter((variant) => variant.name)
+    : null;
+
+  const finalPrice = normalizedVariants && normalizedVariants.length > 0
+    ? normalizedVariants[0].price
+    : Math.max(0, Number(price) || 0);
+  const finalStock = cleanStock;
+
+  let connection;
+  try {
+    connection = await pool.getConnection();
+    await connection.beginTransaction();
+
+    const [productRows] = await connection.query(
+      'SELECT id FROM products WHERE id = ? LIMIT 1',
+      [productId]
+    );
+
+    if (productRows.length === 0) {
+      await connection.rollback();
+      connection.release();
+      return res.status(404).json({ error: 'Produk tidak ditemukan' });
+    }
+
+    const categoryId = await ensureCategoryId(connection, cleanCategory);
+
+    await connection.query(
+      `UPDATE products
+       SET category_id = ?, name = ?, description = ?, base_price = ?, stock = ?, image_url = ?
+       WHERE id = ?`,
+      [categoryId, cleanName, cleanDescription, finalPrice, finalStock, cleanImage, productId]
+    );
+
+    if (normalizedVariants !== null) {
+      await connection.query('DELETE FROM product_variants WHERE product_id = ?', [productId]);
+
+      for (const variant of normalizedVariants) {
+        await connection.query(
+          `INSERT INTO product_variants (product_id, name, price, stock, image_url)
+           VALUES (?, ?, ?, ?, ?)`,
+          [productId, variant.name, variant.price, variant.stock, variant.image]
+        );
+      }
+    }
+
+    const [updatedRows] = await connection.query(
+      `SELECT p.id, p.category_id, c.name AS category_name, p.name, p.slug, p.description, p.base_price, p.stock, p.image_url, p.is_active
+       FROM products p
+       LEFT JOIN categories c ON c.id = p.category_id
+       WHERE p.id = ? LIMIT 1`,
+      [productId]
+    );
+
+    const [updatedVariants] = await connection.query(
+      'SELECT id, name, price, stock, image_url FROM product_variants WHERE product_id = ? ORDER BY id ASC',
+      [productId]
+    );
+
+    await connection.commit();
+    connection.release();
+
+    return res.json({
+      ...updatedRows[0],
+      variants: updatedVariants,
+    });
+  } catch (error) {
+    if (connection) {
+      try {
+        await connection.rollback();
+      } catch (rollbackError) {
+        console.error('Error rolling back product update:', rollbackError);
+      }
+      connection.release();
+    }
+
+    console.error('Error updating product:', error);
+    return res.status(500).json({ error: 'Gagal menyimpan perubahan produk' });
+  }
+});
+
 // DELETE /products/:id - Hard delete product and its variants
 app.delete('/products/:id', async (req, res) => {
   const productId = Number(req.params.id);
@@ -252,6 +410,15 @@ app.delete('/products/:id', async (req, res) => {
     connection = await pool.getConnection();
     await connection.beginTransaction();
 
+    // Cari category_id produk sebelum dihapus
+    const [productRows] = await connection.query('SELECT category_id FROM products WHERE id = ?', [productId]);
+    if (productRows.length === 0) {
+      await connection.rollback();
+      connection.release();
+      return res.status(404).json({ error: 'Produk tidak ditemukan' });
+    }
+    const categoryId = productRows[0].category_id;
+
     // Remove variants first to avoid foreign key conflicts.
     await connection.query('DELETE FROM product_variants WHERE product_id = ?', [productId]);
 
@@ -260,10 +427,11 @@ app.delete('/products/:id', async (req, res) => {
       [productId]
     );
 
-    if (result.affectedRows === 0) {
-      await connection.rollback();
-      connection.release();
-      return res.status(404).json({ error: 'Produk tidak ditemukan' });
+    // Setelah hapus produk, cek apakah masih ada produk lain dengan kategori tsb
+    const [remainingProducts] = await connection.query('SELECT id FROM products WHERE category_id = ?', [categoryId]);
+    if (remainingProducts.length === 0) {
+      // Tidak ada produk lain, hapus kategori
+      await connection.query('DELETE FROM categories WHERE id = ?', [categoryId]);
     }
 
     await connection.commit();
@@ -281,6 +449,70 @@ app.delete('/products/:id', async (req, res) => {
     }
     console.error('Error deleting product:', error);
     return res.status(500).json({ error: 'Gagal menghapus produk' });
+  }
+});
+
+// DELETE /categories/:name - Delete category and all products in that category
+app.delete('/categories/:name', async (req, res) => {
+  const categoryName = decodeURIComponent(req.params.name || '').trim();
+
+  if (!categoryName) {
+    return res.status(400).json({ error: 'Nama kategori tidak valid' });
+  }
+
+  let connection;
+  try {
+    connection = await pool.getConnection();
+    await connection.beginTransaction();
+
+    const [categoryRows] = await connection.query(
+      'SELECT id, name FROM categories WHERE LOWER(name) = LOWER(?) LIMIT 1',
+      [categoryName]
+    );
+
+    if (categoryRows.length === 0) {
+      await connection.rollback();
+      connection.release();
+      return res.status(404).json({ error: 'Kategori tidak ditemukan' });
+    }
+
+    const targetCategoryId = categoryRows[0].id;
+    const targetCategoryName = categoryRows[0].name;
+
+    const [productsInCategory] = await connection.query(
+      'SELECT id FROM products WHERE category_id = ?',
+      [targetCategoryId]
+    );
+
+    const productIds = productsInCategory.map((item) => item.id);
+
+    if (productIds.length > 0) {
+      // Remove variants first. Product deletion can still fail if blocked by other FK constraints (e.g. order_items).
+      await connection.query('DELETE FROM product_variants WHERE product_id IN (?)', [productIds]);
+      await connection.query('DELETE FROM products WHERE id IN (?)', [productIds]);
+    }
+
+    await connection.query('DELETE FROM categories WHERE id = ?', [targetCategoryId]);
+
+    await connection.commit();
+    connection.release();
+
+    return res.json({
+      message: 'Kategori berhasil dihapus',
+      deletedCategory: targetCategoryName,
+      deletedProducts: productIds.length,
+    });
+  } catch (error) {
+    if (connection) {
+      try {
+        await connection.rollback();
+      } catch (rollbackError) {
+        console.error('Error rolling back category deletion:', rollbackError);
+      }
+      connection.release();
+    }
+    console.error('Error deleting category:', error);
+    return res.status(500).json({ error: 'Gagal menghapus kategori' });
   }
 });
 
@@ -334,6 +566,16 @@ app.post('/orders', async (req, res) => {
     console.error('Error creating order:', error);
     res.status(500).json({ error: 'Gagal membuat pesanan' });
   }
+});
+
+// Global error handler to avoid process crash on malformed JSON body.
+app.use((err, req, res, next) => {
+  if (err && (err.type === 'entity.parse.failed' || err instanceof SyntaxError)) {
+    return res.status(400).json({ error: 'Format JSON tidak valid' });
+  }
+
+  console.error('Unhandled server error:', err);
+  return res.status(500).json({ error: 'Terjadi kesalahan pada server' });
 });
 
 // Start server
