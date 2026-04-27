@@ -32,6 +32,33 @@ export function Cart() {
 
     const checkoutToken = generateCheckoutToken();
     localStorage.setItem(PENDING_CHECKOUT_TOKEN_KEY, checkoutToken);
+
+    // Kirim order ke backend
+    const orderPayload = {
+      items: cart.map(item => ({
+        product_id: item.id,
+        variant_id: item.variantId || null,
+        quantity: item.quantity,
+        price: parsePrice(item.price),
+        name: item.name,
+        variant: item.variant || null
+      })),
+      checkoutToken
+    };
+
+    fetch('/orders', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(orderPayload)
+    })
+      .then(async (res) => {
+        const data = await res.json();
+        if (data && data.orderId) {
+          localStorage.setItem('lastOrderId', String(data.orderId));
+        }
+      })
+      .catch(() => {});
+
     const confirmationLink = `${window.location.origin}${window.location.pathname}?orderConfirm=${checkoutToken}`;
 
     const itemsText = cart
@@ -71,7 +98,21 @@ export function Cart() {
     confirmationHandledRef.current = true;
     const storedToken = localStorage.getItem(PENDING_CHECKOUT_TOKEN_KEY);
 
+    // Ambil orderId dari localStorage (atau dari backend jika sudah ada mapping token ke orderId)
+    const orderId = localStorage.getItem('lastOrderId');
+
+    const confirmOrder = async () => {
+      if (orderId) {
+        try {
+          await fetch(`/orders/${orderId}/confirm`, { method: 'POST' });
+        } catch (e) {
+          // Optional: tampilkan error jika gagal
+        }
+      }
+    };
+
     if (storedToken && storedToken === tokenFromLink) {
+      confirmOrder();
       finalizeCheckoutClearCart();
       localStorage.removeItem(PENDING_CHECKOUT_TOKEN_KEY);
 

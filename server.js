@@ -558,13 +558,140 @@ app.post('/products/:id/restore', async (req, res) => {
 });
 
 // POST /orders - Create order (placeholder)
+app.use(express.json());
 app.post('/orders', async (req, res) => {
+  let connection;
   try {
-    // Implement later
-    res.json({ message: 'Order endpoint - WIP' });
+    connection = await pool.getConnection();
+    await connection.beginTransaction();
+
+    const { items, checkoutToken, customer } = req.body;
+    // customer: { name, phone, email, address } (optional, for future)
+    if (!Array.isArray(items) || items.length === 0) {
+      await connection.rollback();
+      connection.release();
+      return res.status(400).json({ error: 'Item pesanan kosong' });
+    }
+
+    // Dummy customer (karena frontend belum kirim data customer)
+    let customerId = null;
+    const defaultCustomer = { name: 'Guest', phone: 'guest', email: null, address: null };
+    const cust = customer || defaultCustomer;
+    // Cari customer by phone, jika tidak ada insert
+    const [custRows] = await connection.query('SELECT id FROM customers WHERE phone = ? LIMIT 1', [cust.phone]);
+    if (custRows.length > 0) {
+      customerId = custRows[0].id;
+    } else {
+      const [custResult] = await connection.query(
+        'INSERT INTO customers (name, phone, email, address) VALUES (?, ?, ?, ?)',
+        [cust.name, cust.phone, cust.email, cust.address]
+      );
+      customerId = custResult.insertId;
+    }
+
+    // Hitung total
+    let totalAmount = 0;
+    for (const item of items) {
+      totalAmount += (item.price || 0) * (item.quantity || 0);
+    }
+
+    // Generate order_number unik
+    const orderNumber = `ORD-${Date.now()}-${Math.floor(Math.random()*10000)}`;
+
+    // Insert order
+    const [orderResult] = await connection.query(
+      'INSERT INTO orders (order_number, customer_id, status, total_amount, notes) VALUES (?, ?, ?, ?, ?)',
+      [orderNumber, customerId, 'pending', totalAmount, checkoutToken || null]
+    );
+    const orderId = orderResult.insertId;
+
+    // Insert order_items
+    for (const item of items) {
+      await connection.query(
+        `INSERT INTO order_items 
+          (order_id, product_id, variant_id, product_name_snapshot, variant_name_snapshot, price_snapshot, quantity, subtotal)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          orderId,
+          item.product_id,
+          item.variant_id || null,
+          item.name,
+          item.variant || null,
+          item.price,
+          item.quantity,
+          (item.price || 0) * (item.quantity || 0)
+        ]
+      );
+    }
+
+    await connection.commit();
+    connection.release();
+    res.json({ message: 'Order berhasil dibuat', orderId });
   } catch (error) {
+    if (connection) {
+      await connection.rollback();
+      connection.release();
+    }
     console.error('Error creating order:', error);
     res.status(500).json({ error: 'Gagal membuat pesanan' });
+  }
+});
+
+// POST /orders/:id/confirm - Konfirmasi order dan kurangi stok produk/varian
+app.post('/orders/:id/confirm', async (req, res) => {
+  const orderId = Number(req.params.id);
+  if (!Number.isInteger(orderId) || orderId <= 0) {
+    return res.status(400).json({ error: 'ID order tidak valid' });
+  }
+  let connection;
+  try {
+    connection = await pool.getConnection();
+    await connection.beginTransaction();
+
+    // Ambil semua item order
+    const [items] = await connection.query(
+      'SELECT product_id, variant_id, quantity FROM order_items WHERE order_id = ?',
+      [orderId]
+    );
+    if (items.length === 0) {
+      await connection.rollback();
+      connection.release();
+      return res.status(404).json({ error: 'Order tidak ditemukan atau tidak ada item' });
+    }
+
+    // Kurangi stok produk/varian
+    for (const item of items) {
+      if (item.variant_id) {
+        // Kurangi stok varian
+        await connection.query(
+          'UPDATE product_variants SET stock = GREATEST(stock - ?, 0) WHERE id = ?',
+          [item.quantity, item.variant_id]
+        );
+      } else {
+        // Kurangi stok produk utama
+        await connection.query(
+          'UPDATE products SET stock = GREATEST(stock - ?, 0) WHERE id = ?',
+          [item.quantity, item.product_id]
+        );
+      }
+    }
+
+    // Update status order
+    await connection.query(
+      "UPDATE orders SET status = 'confirmed' WHERE id = ?",
+      [orderId]
+    );
+
+    await connection.commit();
+    connection.release();
+    res.json({ message: 'Order dikonfirmasi dan stok dikurangi' });
+  } catch (error) {
+    if (connection) {
+      try { await connection.rollback(); } catch {}
+      connection.release();
+    }
+    console.error('Error confirm order:', error);
+    res.status(500).json({ error: 'Gagal konfirmasi order' });
   }
 });
 
