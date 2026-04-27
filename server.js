@@ -640,6 +640,7 @@ app.post('/orders', async (req, res) => {
 // POST /orders/:id/confirm - Konfirmasi order dan kurangi stok produk/varian
 app.post('/orders/:id/confirm', async (req, res) => {
   const orderId = Number(req.params.id);
+  const tokenFromQuery = req.query.token || req.body.token || null;
   if (!Number.isInteger(orderId) || orderId <= 0) {
     return res.status(400).json({ error: 'ID order tidak valid' });
   }
@@ -647,6 +648,26 @@ app.post('/orders/:id/confirm', async (req, res) => {
   try {
     connection = await pool.getConnection();
     await connection.beginTransaction();
+
+    // Ambil order dan cek status/token
+    const [orderRows] = await connection.query('SELECT id, status, notes FROM orders WHERE id = ? LIMIT 1', [orderId]);
+    if (orderRows.length === 0) {
+      await connection.rollback();
+      connection.release();
+      return res.status(404).json({ error: 'Order tidak ditemukan' });
+    }
+    const order = orderRows[0];
+    const orderToken = order.notes;
+    if (order.status !== 'pending') {
+      await connection.rollback();
+      connection.release();
+      return res.status(400).json({ error: 'Order sudah dikonfirmasi atau dibatalkan' });
+    }
+    if (!tokenFromQuery || tokenFromQuery !== orderToken) {
+      await connection.rollback();
+      connection.release();
+      return res.status(400).json({ error: 'Token konfirmasi tidak valid' });
+    }
 
     // Ambil semua item order
     const [items] = await connection.query(
@@ -676,9 +697,9 @@ app.post('/orders/:id/confirm', async (req, res) => {
       }
     }
 
-    // Update status order
+    // Update status order dan kosongkan token
     await connection.query(
-      "UPDATE orders SET status = 'confirmed' WHERE id = ?",
+      "UPDATE orders SET status = 'confirmed', notes = NULL WHERE id = ?",
       [orderId]
     );
 
@@ -692,6 +713,33 @@ app.post('/orders/:id/confirm', async (req, res) => {
     }
     console.error('Error confirm order:', error);
     res.status(500).json({ error: 'Gagal konfirmasi order' });
+  }
+});
+
+// GET /orders?customerPhone=... - Ambil semua order milik customer tertentu
+app.get('/orders', async (req, res) => {
+  const customerPhone = req.query.customerPhone;
+  let connection;
+  try {
+    connection = await pool.getConnection();
+    let orders;
+    if (customerPhone) {
+      // Cari customer id
+      const [custRows] = await connection.query('SELECT id FROM customers WHERE phone = ? LIMIT 1', [customerPhone]);
+      if (custRows.length === 0) {
+        connection.release();
+        return res.json([]);
+      }
+      const customerId = custRows[0].id;
+      [orders] = await connection.query('SELECT * FROM orders WHERE customer_id = ? ORDER BY id ASC', [customerId]);
+    } else {
+      [orders] = await connection.query('SELECT * FROM orders ORDER BY id ASC');
+    }
+    connection.release();
+    res.json(orders);
+  } catch (error) {
+    if (connection) connection.release();
+    res.status(500).json({ error: 'Gagal mengambil data order' });
   }
 });
 

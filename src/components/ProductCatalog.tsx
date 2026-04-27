@@ -14,6 +14,7 @@ import { useCart } from './CartContext';
 import { products as localProducts, PRODUCT_STORAGE_KEY, DELETED_PRODUCT_IDS_KEY } from '../data/products';
 
 type ProductVariant = {
+  id?: number;
   name: string;
   price: string;
   stock?: number;
@@ -115,6 +116,7 @@ export function ProductCatalog() {
       stock: item.stock || 0,
       image: item.image_url,
       variants: item.variants?.map((variant: any) => ({
+        id: variant.id,
         name: variant.name,
         price: formatPrice(variant.price),
         stock: variant.stock,
@@ -122,22 +124,7 @@ export function ProductCatalog() {
       })),
     }));
 
-  const mapLocalProducts = (): Product[] =>
-    localProducts.map((item) => ({
-      id: item.id,
-      name: item.name,
-      category: item.category,
-      description: item.description,
-      price: formatPrice(item.price),
-      stock: item.stock,
-      image: item.image,
-      variants: item.variants?.map((variant) => ({
-        name: variant.name,
-        price: formatPrice(variant.price),
-        stock: variant.stock,
-        image: variant.image,
-      })),
-    }));
+  // Hapus mapLocalProducts, selalu gunakan data dari backend
 
   const mapStoredProductsToCatalog = (storedItems: any[]): Product[] =>
     storedItems.map((item: any) => ({
@@ -236,15 +223,9 @@ export function ProductCatalog() {
         window.dispatchEvent(new Event('products-updated'));
       } catch (err) {
         console.error('Gagal fetch produk dari backend:', err);
-        const localMapped = mapLocalProducts();
-        setProducts(localMapped);
-        // Save fallback in schema expected by getStoredProducts/CartContext.
-        if (typeof window !== 'undefined') {
-          localStorage.setItem(PRODUCT_STORAGE_KEY, JSON.stringify(localProducts));
-        }
+        setProducts([]);
         setProductSource('local');
-        setProductLoadNote('Backend belum tersambung. Produk ditampilkan dari data lokal.');
-        // Still notify about updates even when loading locally
+        setProductLoadNote('Gagal mengambil data produk dari backend.');
         window.dispatchEvent(new Event('products-updated'));
       } finally {
         if (showLoader) {
@@ -671,17 +652,18 @@ export function ProductCatalog() {
                           return;
                         }
 
-                        const variant = product.variants ? product.variants[selectedVariantIndex] : undefined;
-
-                        for (let i = 0; i < quantityToAdd; i += 1) {
-                          addToCart({
-                            id: product.id,
-                            name: product.name,
-                            price: displayPrice,
-                            image: displayImage,
-                            variant: variant?.name,
-                          });
-                        }
+                          const variant = product.variants ? product.variants[selectedVariantIndex] : undefined;
+                          const variantId = variant?.id;
+                          for (let i = 0; i < quantityToAdd; i += 1) {
+                            addToCart({
+                              id: product.id,
+                              name: product.name,
+                              price: displayPrice,
+                              image: displayImage,
+                              variant: variant?.name,
+                              variantId: variantId,
+                            });
+                          }
 
                         // Notify cart and request auto-open so users can review immediately.
                         window.dispatchEvent(

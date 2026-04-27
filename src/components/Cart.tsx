@@ -46,7 +46,7 @@ export function Cart() {
       checkoutToken
     };
 
-    fetch('/orders', {
+    fetch('http://localhost:5000/orders', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(orderPayload)
@@ -91,6 +91,7 @@ export function Cart() {
 
     const params = new URLSearchParams(window.location.search);
     const tokenFromLink = params.get('orderConfirm');
+    console.log('tokenFromLink', tokenFromLink);
     if (!tokenFromLink) {
       return;
     }
@@ -98,39 +99,64 @@ export function Cart() {
     confirmationHandledRef.current = true;
     const storedToken = localStorage.getItem(PENDING_CHECKOUT_TOKEN_KEY);
 
-    // Ambil orderId dari localStorage (atau dari backend jika sudah ada mapping token ke orderId)
-    const orderId = localStorage.getItem('lastOrderId');
 
+    // Ambil orderId dan token dari localStorage
     const confirmOrder = async () => {
-      if (orderId) {
+      console.log('Memanggil confirmOrder');
+      let orderId = localStorage.getItem('lastOrderId');
+      let confirmationToken = localStorage.getItem(PENDING_CHECKOUT_TOKEN_KEY);
+
+      // Jika token di URL ada, cari orderId di backend berdasarkan token
+      if (tokenFromLink) {
         try {
-          await fetch(`/orders/${orderId}/confirm`, { method: 'POST' });
+          const res = await fetch('http://localhost:5000/orders');
+          if (res.ok) {
+            const orders = await res.json();
+            const found = orders.find((o) => o.notes === tokenFromLink && o.status === 'pending');
+            if (found) {
+              orderId = String(found.id);
+              confirmationToken = found.notes;
+            }
+          }
+        } catch {}
+      }
+
+      if (orderId && confirmationToken && confirmationToken === tokenFromLink) {
+        try {
+          const res = await fetch(`http://localhost:5000/orders/${orderId}/confirm?token=${encodeURIComponent(confirmationToken)}`, { method: 'POST' });
+          if (res.ok) {
+            finalizeCheckoutClearCart();
+            localStorage.removeItem(PENDING_CHECKOUT_TOKEN_KEY);
+            if (notificationTimeoutRef.current !== null) {
+              window.clearTimeout(notificationTimeoutRef.current);
+            }
+            setNotification('Pesanan sudah dikonfirmasi toko. Keranjang otomatis dikosongkan.');
+            notificationTimeoutRef.current = window.setTimeout(() => {
+              setNotification(null);
+              window.location.reload(); // reload agar stok produk/varian langsung update di user & admin
+            }, 1500);
+          } else {
+            setNotification('Link konfirmasi tidak valid atau sudah dipakai.');
+            notificationTimeoutRef.current = window.setTimeout(() => {
+              setNotification(null);
+            }, 3500);
+          }
         } catch (e) {
-          // Optional: tampilkan error jika gagal
+          setNotification('Terjadi error saat konfirmasi.');
+          notificationTimeoutRef.current = window.setTimeout(() => {
+            setNotification(null);
+          }, 3500);
         }
+      } else {
+        setNotification('Link konfirmasi tidak valid atau sudah dipakai.');
+        notificationTimeoutRef.current = window.setTimeout(() => {
+          setNotification(null);
+        }, 3500);
       }
     };
 
-    if (storedToken && storedToken === tokenFromLink) {
+    if (tokenFromLink) {
       confirmOrder();
-      finalizeCheckoutClearCart();
-      localStorage.removeItem(PENDING_CHECKOUT_TOKEN_KEY);
-
-      if (notificationTimeoutRef.current !== null) {
-        window.clearTimeout(notificationTimeoutRef.current);
-      }
-      setNotification('Pesanan sudah dikonfirmasi toko. Keranjang otomatis dikosongkan.');
-      notificationTimeoutRef.current = window.setTimeout(() => {
-        setNotification(null);
-      }, 3500);
-    } else {
-      if (notificationTimeoutRef.current !== null) {
-        window.clearTimeout(notificationTimeoutRef.current);
-      }
-      setNotification('Link konfirmasi tidak valid atau sudah dipakai.');
-      notificationTimeoutRef.current = window.setTimeout(() => {
-        setNotification(null);
-      }, 3500);
     }
 
     params.delete('orderConfirm');

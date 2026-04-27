@@ -8,6 +8,7 @@ export type CartItem = {
   quantity: number;
   image: string;
   variant?: string;
+  variantId?: number;
 };
 
 type ProductStock = {
@@ -210,21 +211,18 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   const addToCart = (item: Omit<CartItem, 'quantity'>) => {
     const currentStock = getProductStock(item.id, item.variant);
-    
     // Check if stock is available
     if (currentStock <= 0) {
       alert('Maaf, produk ini sedang habis stok!');
       return;
     }
-
     setCart(prevCart => {
       const existingItem = prevCart.find(
-        cartItem => cartItem.id === item.id && cartItem.variant === item.variant
+        cartItem => cartItem.id === item.id && cartItem.variant === item.variant && cartItem.variantId === item.variantId
       );
-
       if (existingItem) {
         return prevCart.map(cartItem =>
-          cartItem.id === item.id && cartItem.variant === item.variant
+          cartItem.id === item.id && cartItem.variant === item.variant && cartItem.variantId === item.variantId
             ? { ...cartItem, quantity: cartItem.quantity + 1 }
             : cartItem
         );
