@@ -6,11 +6,15 @@ import { motion, AnimatePresence } from 'motion/react';
 export function Cart() {
   const { cart, removeFromCart, updateQuantity, getTotalItems, getTotalPrice, clearCart, finalizeCheckoutClearCart } = useCart();
   const [isOpen, setIsOpen] = React.useState(false);
+  const [isCheckoutReviewOpen, setIsCheckoutReviewOpen] = React.useState(false);
+  const [isSubmittingCheckout, setIsSubmittingCheckout] = React.useState(false);
   const [notification, setNotification] = React.useState<string | null>(null);
   const notificationTimeoutRef = React.useRef<number | null>(null);
-  const confirmationHandledRef = React.useRef(false);
-
-  const PENDING_CHECKOUT_TOKEN_KEY = 'pendingCheckoutToken';
+  const apiBaseUrl = (((import.meta as any).env?.VITE_API_BASE_URL as string) || 'http://localhost:5000')
+    .replace(/\/+$/, '');
+  const CHECKOUT_DUPLICATE_WINDOW_MS = 90_000;
+  const LAST_CHECKOUT_SENT_AT_KEY = 'lastCheckoutSentAt';
+  const LAST_CHECKOUT_FINGERPRINT_KEY = 'lastCheckoutFingerprint';
 
   const parsePrice = (price: string) => parseInt(price.replace(/[^\d]/g, ''), 10) || 0;
   const shortenText = (value: string, maxLength = 42) => (
@@ -27,13 +31,49 @@ export function Cart() {
     return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
   };
 
-  const handleCheckoutWhatsApp = () => {
+  const buildCheckoutFingerprint = () => (
+    cart
+      .map((item) => [item.id, item.variantId ?? '', item.variant ?? '', item.quantity, parsePrice(item.price)].join(':'))
+      .sort()
+      .join('|')
+  );
+
+  const showCheckoutNotification = (message: string, duration = 3500) => {
+    if (notificationTimeoutRef.current !== null) {
+      window.clearTimeout(notificationTimeoutRef.current);
+    }
+
+    setNotification(message);
+    notificationTimeoutRef.current = window.setTimeout(() => {
+      setNotification(null);
+    }, duration);
+  };
+
+  const handleCheckoutWhatsApp = async () => {
     if (cart.length === 0) return;
 
-    const checkoutToken = generateCheckoutToken();
-    localStorage.setItem(PENDING_CHECKOUT_TOKEN_KEY, checkoutToken);
+    if (isSubmittingCheckout) {
+      return;
+    }
 
-    // Kirim order ke backend
+    const checkoutFingerprint = buildCheckoutFingerprint();
+    const lastCheckoutSentAt = Number(localStorage.getItem(LAST_CHECKOUT_SENT_AT_KEY) || 0);
+    const lastCheckoutFingerprint = localStorage.getItem(LAST_CHECKOUT_FINGERPRINT_KEY);
+
+    if (
+      lastCheckoutFingerprint === checkoutFingerprint &&
+      lastCheckoutSentAt > 0 &&
+      Date.now() - lastCheckoutSentAt < CHECKOUT_DUPLICATE_WINDOW_MS
+    ) {
+      showCheckoutNotification('Pesanan yang sama baru saja dikirim. Tunggu sebentar sebelum mengirim ulang.');
+      return;
+    }
+
+    setIsSubmittingCheckout(true);
+
+    const checkoutToken = generateCheckoutToken();
+
+    // Simpan order ke backend supaya admin bisa konfirmasi pembayaran dan memotong stok.
     const orderPayload = {
       items: cart.map(item => ({
         product_id: item.id,
@@ -46,20 +86,11 @@ export function Cart() {
       checkoutToken
     };
 
-    fetch('http://localhost:5000/orders', {
+    const orderRequest = fetch(`${apiBaseUrl}/orders`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(orderPayload)
-    })
-      .then(async (res) => {
-        const data = await res.json();
-        if (data && data.orderId) {
-          localStorage.setItem('lastOrderId', String(data.orderId));
-        }
-      })
-      .catch(() => {});
-
-    const confirmationLink = `${window.location.origin}${window.location.pathname}?orderConfirm=${checkoutToken}`;
+    });
 
     const itemsText = cart
       .map((item, index) => {
@@ -70,100 +101,48 @@ export function Cart() {
       .join('\n\n');
 
     const message = encodeURIComponent(
-      `Halo Toko Kekar Jaya, saya ingin order produk berikut:\n\n${itemsText}\n\nTotal Harga: ${getTotalPrice()}\n\nMohon konfirmasi pesanan saya.\n\nLink konfirmasi pelanggan (kirim kembali link ini ke saya setelah pesanan disetujui):\n${confirmationLink}\n\nTerima kasih.`
+      `Halo Toko Kekar Jaya, saya ingin order produk berikut:\n\n${itemsText}\n\nTotal Harga: ${getTotalPrice()}\n\nMohon diproses, saya menunggu konfirmasi dari admin.\n\nTerima kasih.`
     );
 
     window.open(`https://wa.me/6282284526105?text=${message}`, '_blank');
 
-    if (notificationTimeoutRef.current !== null) {
-      window.clearTimeout(notificationTimeoutRef.current);
-    }
-    setNotification('Pesan WA terkirim. Tunggu link konfirmasi dari toko untuk mengosongkan keranjang.');
-    notificationTimeoutRef.current = window.setTimeout(() => {
-      setNotification(null);
-    }, 3500);
-  };
-
-  React.useEffect(() => {
-    if (confirmationHandledRef.current) {
-      return;
-    }
-
-    const params = new URLSearchParams(window.location.search);
-    const tokenFromLink = params.get('orderConfirm');
-    console.log('tokenFromLink', tokenFromLink);
-    if (!tokenFromLink) {
-      return;
-    }
-
-    confirmationHandledRef.current = true;
-    const storedToken = localStorage.getItem(PENDING_CHECKOUT_TOKEN_KEY);
-
-
-    // Ambil orderId dan token dari localStorage
-    const confirmOrder = async () => {
-      console.log('Memanggil confirmOrder');
-      let orderId = localStorage.getItem('lastOrderId');
-      let confirmationToken = localStorage.getItem(PENDING_CHECKOUT_TOKEN_KEY);
-
-      // Jika token di URL ada, cari orderId di backend berdasarkan token
-      if (tokenFromLink) {
-        try {
-          const res = await fetch('http://localhost:5000/orders');
-          if (res.ok) {
-            const orders = await res.json();
-            const found = orders.find((o: any) => o.notes === tokenFromLink && o.status === 'pending');
-            if (found) {
-              orderId = String(found.id);
-              confirmationToken = found.notes;
+    void orderRequest
+      .then(async (response) => {
+        if (!response.ok) {
+          let errorMessage = 'Gagal menyimpan pesanan.';
+          try {
+            const errorBody = await response.json();
+            if (errorBody?.error) {
+              errorMessage = errorBody.error;
             }
+          } catch {
+            // Keep default message when response is not JSON.
           }
-        } catch {}
-      }
 
-      if (orderId && confirmationToken && confirmationToken === tokenFromLink) {
-        try {
-          const res = await fetch(`http://localhost:5000/orders/${orderId}/confirm?token=${encodeURIComponent(confirmationToken)}`, { method: 'POST' });
-          if (res.ok) {
-            finalizeCheckoutClearCart();
-            localStorage.removeItem(PENDING_CHECKOUT_TOKEN_KEY);
-            if (notificationTimeoutRef.current !== null) {
-              window.clearTimeout(notificationTimeoutRef.current);
-            }
-            setNotification('Pesanan sudah dikonfirmasi toko. Keranjang otomatis dikosongkan.');
-            notificationTimeoutRef.current = window.setTimeout(() => {
-              setNotification(null);
-              window.location.reload(); // reload agar stok produk/varian langsung update di user & admin
-            }, 1500);
-          } else {
-            setNotification('Link konfirmasi tidak valid atau sudah dipakai.');
-            notificationTimeoutRef.current = window.setTimeout(() => {
-              setNotification(null);
-            }, 3500);
-          }
-        } catch (e) {
-          setNotification('Terjadi error saat konfirmasi.');
-          notificationTimeoutRef.current = window.setTimeout(() => {
-            setNotification(null);
-          }, 3500);
+          throw new Error(errorMessage);
         }
-      } else {
-        setNotification('Link konfirmasi tidak valid atau sudah dipakai.');
-        notificationTimeoutRef.current = window.setTimeout(() => {
-          setNotification(null);
-        }, 3500);
-      }
-    };
 
-    if (tokenFromLink) {
-      confirmOrder();
-    }
+        const data = await response.json();
+        if (data && data.orderId) {
+          localStorage.setItem('lastOrderId', String(data.orderId));
+          localStorage.setItem(LAST_CHECKOUT_SENT_AT_KEY, String(Date.now()));
+          localStorage.setItem(LAST_CHECKOUT_FINGERPRINT_KEY, checkoutFingerprint);
+        }
+      })
+      .catch((error: any) => {
+        showCheckoutNotification(
+          error?.message === 'Duplicate checkout detected'
+            ? 'Pesanan yang sama baru saja dibuat. Tunggu sebentar sebelum kirim ulang.'
+            : 'Pesanan WA terkirim, tetapi penyimpanan order gagal. Cek koneksi lalu coba lagi.',
+          4200
+        );
+      })
+      .finally(() => {
+        setIsSubmittingCheckout(false);
+      });
 
-    params.delete('orderConfirm');
-    const cleanQuery = params.toString();
-    const cleanUrl = `${window.location.pathname}${cleanQuery ? `?${cleanQuery}` : ''}${window.location.hash}`;
-    window.history.replaceState({}, '', cleanUrl);
-  }, [finalizeCheckoutClearCart]);
+    showCheckoutNotification('Pesan WA terkirim. Tunggu konfirmasi admin untuk proses stok.');
+  };
 
   React.useEffect(() => {
     const handleCartNotify = (event: Event) => {
@@ -380,7 +359,7 @@ export function Cart() {
                       Kosongkan
                     </button>
                     <button
-                      onClick={handleCheckoutWhatsApp}
+                      onClick={() => setIsCheckoutReviewOpen(true)}
                       className="flex-1 bg-green-500 text-white min-h-11 px-3 py-2.5 rounded-xl font-semibold leading-normal hover:shadow-lg transition-all flex items-center justify-center gap-2 whitespace-nowrap"
                     >
                       <MessageCircle className="w-5 h-5" />
@@ -390,6 +369,106 @@ export function Cart() {
                 </div>
               )}
             </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {isCheckoutReviewOpen && cart.length > 0 && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 backdrop-blur-[2px]"
+              style={{ backgroundColor: 'rgba(15, 23, 42, 0.52)', zIndex: 100 }}
+              onClick={() => setIsCheckoutReviewOpen(false)}
+            />
+
+            <div className="fixed inset-0 flex items-center justify-center p-3" style={{ zIndex: 101 }}>
+              <motion.div
+                initial={{ opacity: 0, scale: 0.98, y: 10 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.98, y: 10 }}
+                transition={{ duration: 0.2, ease: 'easeOut' }}
+                className="w-full bg-white rounded-3xl shadow-2xl border overflow-hidden flex flex-col"
+                style={{
+                  width: 'min(560px, calc(100vw - 24px))',
+                  maxHeight: 'calc(100vh - 24px)',
+                  borderColor: '#fed7aa',
+                }}
+              >
+              <div
+                className="px-6 py-5 border-b"
+                style={{
+                  borderColor: '#ffedd5',
+                  background: 'linear-gradient(135deg, #fff7ed 0%, #fffaf4 100%)',
+                }}
+              >
+                <div className="inline-flex items-center gap-2 rounded-full bg-orange-100 px-3 py-1 text-xs font-bold text-orange-700">
+                  Konfirmasi sebelum kirim
+                </div>
+                <h3 className="mt-3 text-2xl font-extrabold tracking-tight text-gray-900">Konfirmasi Pesanan</h3>
+                <p className="text-sm text-gray-600 mt-2 leading-relaxed">
+                  Pesanan akan disimpan setelah Anda menekan tombol konfirmasi.
+                </p>
+              </div>
+
+              <div className="p-6 space-y-4 max-h-[68vh] overflow-y-auto">
+                <div className="rounded-2xl border border-amber-100 bg-amber-50/70 p-4 shadow-sm">
+                  <div className="text-sm font-semibold text-gray-700">Total Item</div>
+                  <div className="text-2xl font-extrabold text-amber-700">{getTotalItems()}</div>
+                </div>
+
+                <div className="space-y-3">
+                  {cart.map((item) => (
+                    <div key={`review-${item.id}-${item.variant}`} className="flex items-start justify-between gap-4 rounded-2xl border border-gray-200 p-4 shadow-sm bg-white">
+                      <div className="min-w-0">
+                        <div className="font-semibold text-gray-900 leading-snug">
+                          {item.name}
+                          {item.variant && <span className="text-gray-600"> ({item.variant})</span>}
+                        </div>
+                        <div className="text-xs text-gray-500 mt-1">Jumlah: {item.quantity}</div>
+                      </div>
+                      <div className="text-sm font-bold text-gray-900 whitespace-nowrap">
+                        Rp {(parsePrice(item.price) * item.quantity).toLocaleString('id-ID')}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="rounded-2xl bg-orange-50 border border-orange-100 px-4 py-4 flex items-center justify-between gap-4 shadow-sm">
+                  <span className="text-sm font-semibold text-gray-700">Total Harga</span>
+                  <span className="text-lg font-extrabold text-orange-600">{getTotalPrice()}</span>
+                </div>
+
+                <p className="text-sm text-gray-600 leading-relaxed">
+                  Pastikan pesanan sudah benar sebelum menekan tombol konfirmasi.
+                </p>
+              </div>
+
+              <div className="px-6 py-4 border-t flex gap-3" style={{ borderColor: '#ffedd5', backgroundColor: '#fffdf8' }}>
+                <button
+                  type="button"
+                  onClick={() => setIsCheckoutReviewOpen(false)}
+                  className="flex-1 min-h-11 rounded-xl border border-gray-200 bg-white px-4 py-2.5 font-semibold text-gray-700 hover:bg-gray-50"
+                >
+                  Batal
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setIsCheckoutReviewOpen(false);
+                    await handleCheckoutWhatsApp();
+                  }}
+                  disabled={isSubmittingCheckout}
+                  className="flex-1 min-h-11 rounded-xl bg-green-500 px-4 py-2.5 font-semibold text-white hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  {isSubmittingCheckout ? 'Memproses...' : 'Konfirmasi & Kirim ke WhatsApp'}
+                </button>
+              </div>
+              </motion.div>
+            </div>
           </>
         )}
       </AnimatePresence>

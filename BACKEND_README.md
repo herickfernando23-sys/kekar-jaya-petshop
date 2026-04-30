@@ -56,8 +56,14 @@ Ambil semua kategori
 ### GET /products/:id
 Ambil 1 produk + variants
 
-### POST /orders (WIP)
-Buat pesanan (akan di-implement nanti)
+### POST /orders
+Buat pesanan pending dari frontend. Data order disimpan ke database dan akan dikonfirmasi oleh penjual dari dashboard admin.
+
+### GET /orders
+Ambil daftar order. Response sudah menyertakan data customer dan item order untuk dashboard admin.
+
+### POST /orders/:id/confirm?token=...
+Konfirmasi order dari dashboard admin. Endpoint ini mengurangi stok produk/varian dan mengubah status menjadi `confirmed`.
 
 ## Trouble Shooting
 

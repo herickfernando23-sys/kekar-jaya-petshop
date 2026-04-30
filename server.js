@@ -2,6 +2,7 @@ const express = require('express');
 const mysql = require('mysql2/promise');
 const cors = require('cors');
 require('dotenv').config();
+const crypto = require('crypto');
 
 const app = express();
 const path = require('path');
@@ -87,6 +88,36 @@ const pool = mysql.createPool({
   connectionLimit: 10,
   queueLimit: 0,
 });
+
+const DUPLICATE_ORDER_WINDOW_MS = 90 * 1000;
+const recentOrderFingerprints = new Map();
+
+const buildOrderFingerprint = (items, customerPhone = 'guest') => {
+  const normalizedItems = Array.isArray(items)
+    ? items
+        .map((item) => [
+          Number(item.product_id) || 0,
+          item.variant_id === null || item.variant_id === undefined ? '' : Number(item.variant_id),
+          Number(item.quantity) || 0,
+          Number(item.price) || 0,
+        ].join(':'))
+        .sort()
+        .join('|')
+    : '';
+
+  return crypto
+    .createHash('sha1')
+    .update(`${String(customerPhone || 'guest').trim().toLowerCase()}::${normalizedItems}`)
+    .digest('hex');
+};
+
+const pruneRecentOrderFingerprints = (now = Date.now()) => {
+  for (const [fingerprint, createdAt] of recentOrderFingerprints.entries()) {
+    if (now - createdAt > DUPLICATE_ORDER_WINDOW_MS) {
+      recentOrderFingerprints.delete(fingerprint);
+    }
+  }
+};
 
 // Health check
 app.get('/health', (req, res) => {
@@ -562,6 +593,8 @@ app.use(express.json());
 app.post('/orders', async (req, res) => {
   let connection;
   try {
+    pruneRecentOrderFingerprints();
+
     connection = await pool.getConnection();
     await connection.beginTransaction();
 
@@ -571,6 +604,14 @@ app.post('/orders', async (req, res) => {
       await connection.rollback();
       connection.release();
       return res.status(400).json({ error: 'Item pesanan kosong' });
+    }
+
+    const duplicateFingerprint = buildOrderFingerprint(items, customer?.phone || 'guest');
+    const duplicateCreatedAt = recentOrderFingerprints.get(duplicateFingerprint);
+    if (duplicateCreatedAt && Date.now() - duplicateCreatedAt < DUPLICATE_ORDER_WINDOW_MS) {
+      await connection.rollback();
+      connection.release();
+      return res.status(409).json({ error: 'Duplicate checkout detected' });
     }
 
     // Dummy customer (karena frontend belum kirim data customer)
@@ -626,6 +667,7 @@ app.post('/orders', async (req, res) => {
 
     await connection.commit();
     connection.release();
+    recentOrderFingerprints.set(duplicateFingerprint, Date.now());
     res.json({ message: 'Order berhasil dibuat', orderId });
   } catch (error) {
     if (connection) {
@@ -688,6 +730,17 @@ app.post('/orders/:id/confirm', async (req, res) => {
           'UPDATE product_variants SET stock = GREATEST(stock - ?, 0) WHERE id = ?',
           [item.quantity, item.variant_id]
         );
+
+        // Sinkronkan stok total produk utama agar tampilan katalog tetap akurat.
+        const [totalRows] = await connection.query(
+          'SELECT COALESCE(SUM(stock), 0) AS total_stock FROM product_variants WHERE product_id = ? LIMIT 1',
+          [item.product_id]
+        );
+        const totalStock = Number(totalRows?.[0]?.total_stock) || 0;
+        await connection.query(
+          'UPDATE products SET stock = ? WHERE id = ?',
+          [totalStock, item.product_id]
+        );
       } else {
         // Kurangi stok produk utama
         await connection.query(
@@ -722,21 +775,69 @@ app.get('/orders', async (req, res) => {
   let connection;
   try {
     connection = await pool.getConnection();
-    let orders;
-    if (customerPhone) {
-      // Cari customer id
-      const [custRows] = await connection.query('SELECT id FROM customers WHERE phone = ? LIMIT 1', [customerPhone]);
-      if (custRows.length === 0) {
-        connection.release();
-        return res.json([]);
-      }
-      const customerId = custRows[0].id;
-      [orders] = await connection.query('SELECT * FROM orders WHERE customer_id = ? ORDER BY id ASC', [customerId]);
-    } else {
-      [orders] = await connection.query('SELECT * FROM orders ORDER BY id ASC');
+    const whereClause = customerPhone ? 'WHERE c.phone = ?' : '';
+    const queryParams = customerPhone ? [customerPhone] : [];
+
+    const [orders] = await connection.query(
+      `SELECT
+         o.id,
+         o.order_number,
+         o.customer_id,
+         o.status,
+         o.total_amount,
+         o.notes,
+         o.created_at,
+         o.updated_at,
+         c.name AS customer_name,
+         c.phone AS customer_phone,
+         c.email AS customer_email,
+         c.address AS customer_address
+       FROM orders o
+       INNER JOIN customers c ON c.id = o.customer_id
+       ${whereClause}
+       ORDER BY o.id DESC`,
+      queryParams
+    );
+
+    if (orders.length === 0) {
+      connection.release();
+      return res.json([]);
     }
+
+    const orderIds = orders.map((order) => order.id);
+    const [items] = await connection.query(
+      `SELECT
+         id,
+         order_id,
+         product_id,
+         variant_id,
+         product_name_snapshot,
+         variant_name_snapshot,
+         price_snapshot,
+         quantity,
+         subtotal,
+         created_at,
+         updated_at
+       FROM order_items
+       WHERE order_id IN (?)
+       ORDER BY order_id ASC, id ASC`,
+      [orderIds]
+    );
+
+    const itemsByOrderId = new Map();
+    items.forEach((item) => {
+      const currentItems = itemsByOrderId.get(item.order_id) || [];
+      currentItems.push(item);
+      itemsByOrderId.set(item.order_id, currentItems);
+    });
+
+    const responseOrders = orders.map((order) => ({
+      ...order,
+      items: itemsByOrderId.get(order.id) || [],
+    }));
+
     connection.release();
-    res.json(orders);
+    res.json(responseOrders);
   } catch (error) {
     if (connection) connection.release();
     res.status(500).json({ error: 'Gagal mengambil data order' });

@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { X } from 'lucide-react';
+import { CheckCircle2, Clock3, RefreshCw, X } from 'lucide-react';
 import { getStoredProducts, PRODUCT_STORAGE_KEY, DELETED_PRODUCT_IDS_KEY } from '../data/products';
 import type { Product, ProductVariant } from '../data/products';
 
@@ -20,6 +20,36 @@ type NewProductData = {
   stock: number;
   description: string;
   image: string;
+};
+
+type OrderItem = {
+  id: number;
+  order_id: number;
+  product_id: number;
+  variant_id: number | null;
+  product_name_snapshot: string;
+  variant_name_snapshot: string | null;
+  price_snapshot: number;
+  quantity: number;
+  subtotal: number;
+  created_at: string;
+  updated_at: string;
+};
+
+type AdminOrder = {
+  id: number;
+  order_number: string;
+  customer_id: number;
+  status: string;
+  total_amount: number;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+  customer_name: string;
+  customer_phone: string;
+  customer_email: string | null;
+  customer_address: string | null;
+  items: OrderItem[];
 };
 
 const ADMIN_CUSTOM_CATEGORIES_KEY = 'adminCustomCategories';
@@ -52,6 +82,10 @@ const AdminDashboard = () => {
     description: '',
     image: '/images/whiskas.jpg',
   });
+  const [orders, setOrders] = useState<AdminOrder[]>([]);
+  const [ordersLoading, setOrdersLoading] = useState(false);
+  const [ordersError, setOrdersError] = useState('');
+  const [confirmingOrderId, setConfirmingOrderId] = useState<number | null>(null);
   const [undoDeletedProduct, setUndoDeletedProduct] = useState<{ product: Product; index: number } | null>(null);
   const [editPanelOffsetTop, setEditPanelOffsetTop] = useState(0);
   const undoTimerRef = useRef<number | null>(null);
@@ -59,6 +93,23 @@ const AdminDashboard = () => {
   const navigate = useNavigate();
   const apiBaseUrl = (((import.meta as any).env?.VITE_API_BASE_URL as string) || 'http://localhost:5000')
     .replace(/\/+$/, '');
+
+  const formatCurrency = (value: number) => `Rp ${value.toLocaleString('id-ID')}`;
+
+  const formatDateTime = (value: string) => {
+    try {
+      return new Intl.DateTimeFormat('id-ID', {
+        dateStyle: 'medium',
+        timeStyle: 'short',
+      }).format(new Date(value));
+    } catch {
+      return value;
+    }
+  };
+
+  const preventNumberInputWheel = (event: React.WheelEvent<HTMLInputElement>) => {
+    event.currentTarget.blur();
+  };
 
   const syncProductsFromServer = async () => {
     try {
@@ -98,6 +149,107 @@ const AdminDashboard = () => {
     }
   };
 
+  const syncOrdersFromServer = async () => {
+    setOrdersLoading(true);
+    setOrdersError('');
+
+    try {
+      const response = await fetch(`${apiBaseUrl}/orders?t=${Date.now()}`);
+      if (!response.ok) {
+        throw new Error('Gagal mengambil data order dari server.');
+      }
+
+      const data = await response.json();
+      if (!Array.isArray(data)) {
+        throw new Error('Format data order tidak valid.');
+      }
+
+      const mappedOrders: AdminOrder[] = data.map((item: any) => ({
+        id: Number(item.id),
+        order_number: item.order_number || `ORD-${item.id}`,
+        customer_id: Number(item.customer_id) || 0,
+        status: item.status || 'pending',
+        total_amount: Number(item.total_amount) || 0,
+        notes: item.notes ?? null,
+        created_at: item.created_at || '',
+        updated_at: item.updated_at || '',
+        customer_name: item.customer_name || 'Pelanggan',
+        customer_phone: item.customer_phone || '-',
+        customer_email: item.customer_email ?? null,
+        customer_address: item.customer_address ?? null,
+        items: Array.isArray(item.items)
+          ? item.items.map((orderItem: any) => ({
+              id: Number(orderItem.id),
+              order_id: Number(orderItem.order_id),
+              product_id: Number(orderItem.product_id),
+              variant_id: orderItem.variant_id === null || orderItem.variant_id === undefined ? null : Number(orderItem.variant_id),
+              product_name_snapshot: orderItem.product_name_snapshot || 'Produk',
+              variant_name_snapshot: orderItem.variant_name_snapshot ?? null,
+              price_snapshot: Number(orderItem.price_snapshot) || 0,
+              quantity: Number(orderItem.quantity) || 0,
+              subtotal: Number(orderItem.subtotal) || 0,
+              created_at: orderItem.created_at || '',
+              updated_at: orderItem.updated_at || '',
+            }))
+          : [],
+      }));
+
+      setOrders(mappedOrders);
+    } catch (error: any) {
+      setOrders([]);
+      setOrdersError(error?.message || 'Gagal memuat daftar order.');
+    } finally {
+      setOrdersLoading(false);
+    }
+  };
+
+  const pendingOrders = useMemo(
+    () => orders.filter((order) => order.status === 'pending'),
+    [orders]
+  );
+
+  const handleConfirmPayment = async (order: AdminOrder) => {
+    if (!order.notes) {
+      window.alert('Token konfirmasi untuk order ini tidak tersedia.');
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Konfirmasi pembayaran untuk ${order.order_number}? Stok akan otomatis berkurang setelah ini.`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setConfirmingOrderId(order.id);
+
+    try {
+      const response = await fetch(
+        `${apiBaseUrl}/orders/${order.id}/confirm?token=${encodeURIComponent(order.notes)}`,
+        { method: 'POST' }
+      );
+
+      let responseBody: any = null;
+      try {
+        responseBody = await response.json();
+      } catch {
+        responseBody = null;
+      }
+
+      if (!response.ok) {
+        throw new Error(responseBody?.error || 'Gagal mengonfirmasi pembayaran.');
+      }
+
+      await Promise.all([syncProductsFromServer(), syncOrdersFromServer()]);
+      window.alert('Pembayaran berhasil dikonfirmasi. Stok sudah diperbarui otomatis.');
+    } catch (error: any) {
+      window.alert(error?.message || 'Terjadi kesalahan saat mengonfirmasi pembayaran.');
+    } finally {
+      setConfirmingOrderId(null);
+    }
+  };
+
   // Listen for product updates from CartContext or other sources
   useEffect(() => {
     // Hapus cache produk dan ID terhapus setiap kali halaman admin dibuka
@@ -110,6 +262,7 @@ const AdminDashboard = () => {
     };
 
     syncProductsFromServer();
+    syncOrdersFromServer();
 
     window.addEventListener('products-updated', handleProductsUpdated);
     window.addEventListener('storage', handleProductsUpdated);
@@ -645,6 +798,100 @@ const AdminDashboard = () => {
           </div>
         </div>
 
+        <div className="bg-white/95 shadow-sm rounded-2xl p-6 mb-6 border border-emerald-100">
+          <div className="flex flex-wrap items-center justify-between gap-4 mb-5">
+            <div>
+              <h3 className="text-lg font-bold text-gray-900">Order Menunggu Konfirmasi</h3>
+              <p className="text-sm text-gray-600">
+                Setelah pembayaran diterima, klik konfirmasi agar stok otomatis berkurang di server.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={syncOrdersFromServer}
+              className="inline-flex items-center gap-2 rounded-xl border-2 border-emerald-700 px-4 py-2 text-sm font-extrabold shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
+              style={{ backgroundColor: '#16a34a', color: '#ffffff', borderColor: '#15803d' }}
+            >
+              <RefreshCw className={`h-4 w-4 ${ordersLoading ? 'animate-spin' : ''}`} />
+              Muat Ulang Order
+            </button>
+          </div>
+
+          {ordersLoading ? (
+            <div className="rounded-2xl border border-dashed border-emerald-200 bg-emerald-50/70 px-4 py-8 text-center text-sm text-emerald-700">
+              Memuat data order...
+            </div>
+          ) : ordersError ? (
+            <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-4 text-sm text-red-700">
+              {ordersError}
+            </div>
+          ) : pendingOrders.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-emerald-200 bg-emerald-50/70 px-4 py-8 text-center text-sm text-emerald-700">
+              Belum ada order pending untuk dikonfirmasi.
+            </div>
+          ) : (
+            <div className="grid gap-4 xl:grid-cols-2">
+              {pendingOrders.map((order) => (
+                <div key={order.id} className="rounded-2xl border border-emerald-100 bg-white p-5 shadow-sm">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <div className="flex items-center gap-2 text-emerald-700 font-extrabold">
+                        <Clock3 className="h-4 w-4" />
+                        Pending
+                      </div>
+                      <h4 className="mt-1 text-lg font-bold text-gray-900">{order.order_number}</h4>
+                      <p className="text-sm text-gray-600">
+                        {order.customer_name} · {order.customer_phone}
+                      </p>
+                      <p className="text-xs text-gray-500">Dibuat {formatDateTime(order.created_at)}</p>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-xs font-semibold uppercase tracking-wide text-gray-500">Total</div>
+                      <div className="text-xl font-extrabold text-gray-900">{formatCurrency(order.total_amount)}</div>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 rounded-2xl bg-gray-50 p-4">
+                    <div className="mb-2 text-sm font-bold text-gray-700">Rincian Item</div>
+                    <div className="space-y-2">
+                      {order.items.map((item) => (
+                        <div key={item.id} className="flex items-start justify-between gap-4 border-b border-gray-200 pb-2 last:border-b-0 last:pb-0">
+                          <div>
+                            <div className="font-semibold text-gray-900">
+                              {item.product_name_snapshot}
+                              {item.variant_name_snapshot ? ` - ${item.variant_name_snapshot}` : ''}
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              {item.quantity} x {formatCurrency(item.price_snapshot)}
+                            </div>
+                          </div>
+                          <div className="text-sm font-bold text-gray-900">{formatCurrency(item.subtotal)}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+                    <div className="text-xs text-gray-500">
+                      Setelah dikonfirmasi, status order berubah menjadi confirmed dan stok dikurangi otomatis.
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleConfirmPayment(order)}
+                      disabled={confirmingOrderId === order.id}
+                      className="inline-flex items-center gap-2 rounded-xl border-2 border-blue-700 px-4 py-2 text-sm font-extrabold shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-60"
+                      style={{ backgroundColor: '#2563eb', color: '#ffffff', borderColor: '#1d4ed8' }}
+                    >
+                      <CheckCircle2 className="h-4 w-4" />
+                      {confirmingOrderId === order.id ? 'Memproses...' : 'Konfirmasi Pembayaran'}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
         {/* Category Filter */}
         <div className="bg-white/95 shadow-sm rounded-2xl p-6 mb-6 border border-orange-100">
           <h3 className="text-lg font-bold text-gray-900 mb-6">Filter Kategori</h3>
@@ -856,6 +1103,7 @@ const AdminDashboard = () => {
                         min="0"
                         value={newProduct.price}
                         onChange={(e) => setNewProduct((prev) => ({ ...prev, price: parseInt(e.target.value) || 0 }))}
+                        onWheel={preventNumberInputWheel}
                         className="w-full px-3 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500"
                       />
                     </div>
@@ -866,6 +1114,7 @@ const AdminDashboard = () => {
                         min="0"
                         value={newProduct.stock}
                         onChange={(e) => setNewProduct((prev) => ({ ...prev, stock: parseInt(e.target.value) || 0 }))}
+                        onWheel={preventNumberInputWheel}
                         className="w-full px-3 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500"
                       />
                     </div>
@@ -1022,6 +1271,7 @@ const AdminDashboard = () => {
                         <td className="px-3 py-2">
                           <input
                             type="number"
+                            min="0"
                             value={editingData.price}
                             onChange={(e) =>
                               setEditingData({
@@ -1029,6 +1279,7 @@ const AdminDashboard = () => {
                                 price: parseInt(e.target.value) || 0
                               })
                             }
+                            onWheel={preventNumberInputWheel}
                             className="w-full px-3 py-2 border-2 border-orange-400 rounded font-bold focus:outline-none focus:ring-2 focus:ring-orange-500"
                           />
                         </td>
@@ -1046,6 +1297,7 @@ const AdminDashboard = () => {
                                 stock: parseInt(e.target.value) || 0
                               })
                             }
+                            onWheel={preventNumberInputWheel}
                             className="w-full px-3 py-2 border-2 border-orange-400 rounded font-bold focus:outline-none focus:ring-2 focus:ring-orange-500"
                           />
                         </td>
@@ -1136,6 +1388,7 @@ const AdminDashboard = () => {
                                     ),
                                   });
                                 }}
+                                onWheel={preventNumberInputWheel}
                                 className="w-full px-2 py-1 border border-orange-300 rounded text-xs font-semibold"
                                 aria-label={`Harga varian ${variant.name}`}
                               />
@@ -1156,6 +1409,7 @@ const AdminDashboard = () => {
                                     variants: updatedVariants,
                                   });
                                 }}
+                                onWheel={preventNumberInputWheel}
                                 className="w-full px-2 py-1 border border-orange-300 rounded text-xs font-semibold"
                                 aria-label={`Stok varian ${variant.name}`}
                               />
