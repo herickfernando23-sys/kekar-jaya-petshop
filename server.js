@@ -2,7 +2,6 @@ const express = require('express');
 const mysql = require('mysql2/promise');
 const cors = require('cors');
 require('dotenv').config();
-const crypto = require('crypto');
 
 const app = express();
 const path = require('path');
@@ -88,36 +87,6 @@ const pool = mysql.createPool({
   connectionLimit: 10,
   queueLimit: 0,
 });
-
-const DUPLICATE_ORDER_WINDOW_MS = 90 * 1000;
-const recentOrderFingerprints = new Map();
-
-const buildOrderFingerprint = (items, customerPhone = 'guest') => {
-  const normalizedItems = Array.isArray(items)
-    ? items
-        .map((item) => [
-          Number(item.product_id) || 0,
-          item.variant_id === null || item.variant_id === undefined ? '' : Number(item.variant_id),
-          Number(item.quantity) || 0,
-          Number(item.price) || 0,
-        ].join(':'))
-        .sort()
-        .join('|')
-    : '';
-
-  return crypto
-    .createHash('sha1')
-    .update(`${String(customerPhone || 'guest').trim().toLowerCase()}::${normalizedItems}`)
-    .digest('hex');
-};
-
-const pruneRecentOrderFingerprints = (now = Date.now()) => {
-  for (const [fingerprint, createdAt] of recentOrderFingerprints.entries()) {
-    if (now - createdAt > DUPLICATE_ORDER_WINDOW_MS) {
-      recentOrderFingerprints.delete(fingerprint);
-    }
-  }
-};
 
 // Health check
 app.get('/health', (req, res) => {
@@ -593,8 +562,6 @@ app.use(express.json());
 app.post('/orders', async (req, res) => {
   let connection;
   try {
-    pruneRecentOrderFingerprints();
-
     connection = await pool.getConnection();
     await connection.beginTransaction();
 
@@ -604,14 +571,6 @@ app.post('/orders', async (req, res) => {
       await connection.rollback();
       connection.release();
       return res.status(400).json({ error: 'Item pesanan kosong' });
-    }
-
-    const duplicateFingerprint = buildOrderFingerprint(items, customer?.phone || 'guest');
-    const duplicateCreatedAt = recentOrderFingerprints.get(duplicateFingerprint);
-    if (duplicateCreatedAt && Date.now() - duplicateCreatedAt < DUPLICATE_ORDER_WINDOW_MS) {
-      await connection.rollback();
-      connection.release();
-      return res.status(409).json({ error: 'Duplicate checkout detected' });
     }
 
     // Dummy customer (karena frontend belum kirim data customer)
@@ -667,7 +626,6 @@ app.post('/orders', async (req, res) => {
 
     await connection.commit();
     connection.release();
-    recentOrderFingerprints.set(duplicateFingerprint, Date.now());
     res.json({ message: 'Order berhasil dibuat', orderId });
   } catch (error) {
     if (connection) {
