@@ -264,6 +264,24 @@ const AdminDashboard = () => {
     syncProductsFromServer();
     syncOrdersFromServer();
 
+    // Remove stray local custom category named 'tes' (case-insensitive) if present
+    try {
+      const raw = localStorage.getItem(ADMIN_CUSTOM_CATEGORIES_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          const filtered = parsed.filter((c: any) => typeof c === 'string' && c.trim().toLowerCase() !== 'tes');
+          if (filtered.length !== parsed.length) {
+            localStorage.setItem(ADMIN_CUSTOM_CATEGORIES_KEY, JSON.stringify(filtered));
+            setCustomCategories(filtered);
+            window.dispatchEvent(new Event('categories-updated'));
+          }
+        }
+      }
+    } catch {
+      // ignore malformed localStorage
+    }
+
     window.addEventListener('products-updated', handleProductsUpdated);
     window.addEventListener('storage', handleProductsUpdated);
 
@@ -398,26 +416,36 @@ const AdminDashboard = () => {
 
     if (!window.confirm(confirmMessage)) return;
 
+    let serverMissing = false;
     try {
       const response = await fetch(`${apiBaseUrl}/categories/${encodeURIComponent(categoryName)}`, {
         method: 'DELETE',
       });
 
       if (!response.ok) {
-        let message = 'Gagal menghapus kategori di server.';
-        try {
-          const errorBody = await response.json();
-          if (errorBody?.error) {
-            message = errorBody.error;
+        if (response.status === 404) {
+          // Category not found on server — treat as local-only and continue to remove locally
+          serverMissing = true;
+        } else {
+          let message = 'Gagal menghapus kategori di server.';
+          try {
+            const errorBody = await response.json();
+            if (errorBody?.error) {
+              message = errorBody.error;
+            }
+          } catch {
+            // Use default message when server response is not JSON.
           }
-        } catch {
-          // Use default message when server response is not JSON.
+          throw new Error(message);
         }
-        throw new Error(message);
       }
     } catch (error: any) {
-      window.alert(error?.message || 'Gagal menghapus kategori di server.');
-      return;
+      if (serverMissing) {
+        // continue with local cleanup
+      } else {
+        window.alert(error?.message || 'Gagal menghapus kategori di server.');
+        return;
+      }
     }
 
     if (affectedProductsCount > 0) {
