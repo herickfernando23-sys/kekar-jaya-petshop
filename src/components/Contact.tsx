@@ -2,7 +2,21 @@ import { Mail, MapPin, MessageCircle, Phone } from 'lucide-react';
 
 export function Contact() {
   return (
-    <section id="contact" className="section-band section-band-warm py-16">
+    <section id="contact" className="section-band section-band-warm py-16 relative overflow-hidden">
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          backgroundImage: "url('https://img.magnific.com/free-vector/flat-international-cat-day-background-with-cat-paws_23-2149459818.jpg')",
+          backgroundRepeat: 'no-repeat',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          opacity: 0.99,
+        }}
+      />
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{ background: 'rgba(255,255,255,0.25)' }}
+      />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-12">
           <p data-reveal className="reveal-on-scroll text-sm font-semibold uppercase tracking-wide mb-3" style={{ color: '#ea580c' }}>

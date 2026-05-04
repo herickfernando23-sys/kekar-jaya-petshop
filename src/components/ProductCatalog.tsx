@@ -340,46 +340,41 @@ export function ProductCatalog() {
       id="catalog"
       className="py-16 relative overflow-hidden"
       style={{
-        background:
-          'radial-gradient(120% 85% at 8% 0%, rgba(249, 115, 22, 0.24) 0%, rgba(249, 115, 22, 0) 58%), radial-gradient(85% 65% at 100% 12%, rgba(251, 191, 36, 0.18) 0%, rgba(251, 191, 36, 0) 62%), linear-gradient(180deg, #fff3e2 0%, #ffeedb 46%, #ffe6cf 100%)',
+        background: '#d0e6fc',
       }}
     >
       <div
-        className="absolute inset-x-0 top-0 h-24 pointer-events-none"
-        style={{ background: 'linear-gradient(180deg, rgba(249, 115, 22, 0.16) 0%, rgba(249, 115, 22, 0) 100%)' }}
-      />
-      <div
-        className="absolute -top-16 -right-16 w-64 h-64 rounded-full blur-3xl pointer-events-none opacity-40"
-        style={{ background: 'radial-gradient(circle, rgba(251, 191, 36, 0.28) 0%, rgba(251, 191, 36, 0) 70%)' }}
-      />
-      <div
-        className="absolute bottom-0 -left-20 w-80 h-80 rounded-full blur-3xl pointer-events-none opacity-35"
-        style={{ background: 'radial-gradient(circle, rgba(249, 115, 22, 0.24) 0%, rgba(249, 115, 22, 0) 72%)' }}
-      />
-      <div
-        className="absolute inset-0 pointer-events-none opacity-30"
+        className="absolute inset-0 pointer-events-none"
         style={{
-          backgroundImage: "url('https://static.vecteezy.com/system/resources/previews/008/291/069/non_2x/dog-paw-seamless-pattern-bone-dog-footprint-pattern-cartoon-tile-fancy-cream-background-repeat-scarf-isolated-illustration-gift-or-wrapping-paper-puppy-texture-vector.jpg')",
+          backgroundImage: "url('https://img.magnific.com/free-vector/flat-design-paw-prints-background_23-2151130235.jpg')",
           backgroundRepeat: 'repeat',
-          backgroundSize: '420px 420px',
+          backgroundSize: '440px',
           backgroundPosition: '0 0',
+          opacity: 0.95,
         }}
       />
       <div
         className="absolute inset-0 pointer-events-none"
         style={{
-          opacity: 0.18,
-          background:
-            'conic-gradient(from 180deg at 50% 50%, rgba(255, 255, 255, 0) 0deg, rgba(255, 255, 255, 0.14) 80deg, rgba(255, 255, 255, 0) 160deg, rgba(255, 255, 255, 0.08) 240deg, rgba(255, 255, 255, 0) 360deg)',
-          mixBlendMode: 'soft-light',
+          background: '#d0e6fc',
+          opacity: 0.35,
+          mixBlendMode: 'multiply',
         }}
       />
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-12">
-          <h2 data-reveal className="reveal-on-scroll text-3xl sm:text-4xl font-bold text-black mb-4">
+          <h2
+            data-reveal
+            className="reveal-on-scroll text-3xl sm:text-4xl font-bold text-black mb-4"
+            style={{ textShadow: '0 6px 20px rgba(0,0,0,0.45)' }}
+          >
             Katalog Produk
           </h2>
-          <p data-reveal className="reveal-on-scroll text-black max-w-2xl mx-auto mb-8" style={{ ['--reveal-delay' as string]: '80ms' }}>
+          <p
+            data-reveal
+            className="reveal-on-scroll text-black max-w-2xl mx-auto mb-8 font-semibold"
+            style={{ ['--reveal-delay' as string]: '80ms', textShadow: '0 3px 12px rgba(0,0,0,0.32)' }}
+          >
             Pilihan produk lengkap untuk kebutuhan kucing kesayangan Anda
           </p>
           {productSource === 'local' && productLoadNote && (

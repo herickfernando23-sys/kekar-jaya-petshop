@@ -1,3 +1,5 @@
+const pawPrintBackgroundUrl = 'https://img.magnific.com/free-vector/gradient-paw-prints-background_23-2151105465.jpg?t=st=1777889520~exp=1777893120~hmac=10e19697987159cb59c60677e8e2d8fab8f5ba229075eeccbd6ee9679e43a480&w=1060';
+
 export function AnimatedStripeBand() {
   return (
     <section className="relative left-1/2 right-1/2 mt-10 sm:mt-14 lg:mt-16 w-screen -translate-x-1/2 overflow-hidden">
@@ -34,10 +36,10 @@ export function AnimatedStripeBand() {
                 {Array.from({ length: 22 }).map((_, index) => (
                   <image
                     key={`pattern-tile-a-${index}`}
-                    href="https://static.vecteezy.com/system/resources/previews/006/431/810/non_2x/seamless-dog-pattern-with-paw-prints-cat-foots-texture-pattern-with-doggy-pawprints-dog-texture-hand-drawn-illustration-in-doodle-style-on-white-background-vector.jpg"
-                    x={index * 380}
+                    href={pawPrintBackgroundUrl}
+                    x={index * 220}
                     y="0"
-                    width="380"
+                    width="220"
                     height="72"
                     opacity="0.9"
                     preserveAspectRatio="xMidYMid slice"
@@ -46,10 +48,10 @@ export function AnimatedStripeBand() {
                 {Array.from({ length: 22 }).map((_, index) => (
                   <image
                     key={`pattern-tile-b-${index}`}
-                    href="https://static.vecteezy.com/system/resources/previews/006/431/810/non_2x/seamless-dog-pattern-with-paw-prints-cat-foots-texture-pattern-with-doggy-pawprints-dog-texture-hand-drawn-illustration-in-doodle-style-on-white-background-vector.jpg"
-                    x={9460 + index * 430}
+                    href={pawPrintBackgroundUrl}
+                    x={9460 + index * 220}
                     y="0"
-                    width="430"
+                    width="220"
                     height="72"
                     opacity="0.9"
                     preserveAspectRatio="xMidYMid slice"

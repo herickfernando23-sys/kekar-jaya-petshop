@@ -151,7 +151,7 @@ export function Footer() {
         </div>
 
         {/* Bottom Bar */}
-        <div data-reveal className="reveal-on-scroll border-t pt-6 text-center text-sm text-gray-300" style={{ borderColor: 'rgba(255, 255, 255, 0.14)', transitionDelay: '120ms' }}>
+        <div data-reveal className="reveal-on-scroll pt-6 text-center text-sm text-gray-300" style={{ transitionDelay: '120ms' }}>
           <p>&copy; 2026 Toko Kekar Jaya. All rights reserved.</p>
         </div>
       </div>
