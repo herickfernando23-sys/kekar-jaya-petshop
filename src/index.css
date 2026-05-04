@@ -401,7 +401,7 @@
   }
 
   body {
-    background-color: var(--background);
+    background-color: #111827;
     color: var(--foreground);
   }
 
@@ -417,7 +417,7 @@
   }
 
   body {
-    background-color: var(--background);
+    background-color: #111827;
     color: var(--foreground);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;

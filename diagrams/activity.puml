@@ -1,0 +1,72 @@
+@startuml ACTIVITY_KEKAR_JAYA
+' Activity Diagram untuk KEKAR JAYA Pet Shop - Customer Order Flow
+
+start
+:Buka Website;
+:Lihat Halaman Utama;
+:Search atau Browse Kategori Produk;
+:Lihat Daftar Produk;
+
+if (Produk Sesuai?) then (Ya)
+  :Klik Produk;
+  :Lihat Detail Produk;
+  :Baca Deskripsi & Ulasan;
+  if (Tertarik?) then (Ya)
+    :Pilih Jumlah;
+    :Klik "Tambah ke Keranjang";
+    if (Lanjut Belanja?) then (Ya)
+      :Kembali ke Pencarian;
+      note right : Loop ke browsing produk lagi
+    else (Tidak)
+      :Lihat Keranjang;
+    endif
+  else (Tidak)
+    :Kembali ke Pencarian;
+  endif
+else (Tidak)
+  :Coba Search Lagi;
+endif
+
+:Review Keranjang;
+:Lihat Total Harga;
+if (Setuju?) then (Ya)
+  :Klik Checkout;
+  if (Sudah Login?) then (Tidak)
+    :Redirect ke Login;
+    if (Punya Akun?) then (Ya)
+      :Login dengan Email & Password;
+    else (Tidak)
+      :Register Akun Baru;
+      :Verifikasi Email;
+      :Login;
+    endif
+  else (Ya)
+    :Lanjutkan;
+  endif
+  
+  :Masukkan Alamat Pengiriman;
+  :Pilih Metode Pembayaran;
+  :Review Pesanan Final;
+  :Klik Pesan;
+  :Bayar Pesanan;
+  
+  if (Pembayaran Berhasil?) then (Ya)
+    :Pesanan Dikonfirmasi;
+    :Terima Notifikasi di Email & WhatsApp;
+    :Lihat Detail Pesanan;
+    :Track Status Pengiriman;
+    :Produk Tiba;
+    :Beri Ulasan & Rating;
+    :Selesai;
+  else (Tidak)
+    :Pembayaran Gagal;
+    :Coba Bayar Lagi;
+    note right : Kembali ke pembayaran
+  endif
+  
+else (Tidak)
+  :Batalkan;
+  stop
+endif
+
+@enduml

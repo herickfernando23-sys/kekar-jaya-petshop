@@ -6,16 +6,16 @@ export function Contact() {
       <div
         className="absolute inset-0 pointer-events-none"
         style={{
-          backgroundImage: "url('https://img.magnific.com/free-vector/flat-international-cat-day-background-with-cat-paws_23-2149459818.jpg')",
+          backgroundImage: "url('https://img.magnific.com/free-photo/top-view-animal-food-with-paw-print-animal-day_23-2148668905.jpg?t=st=1777911625~exp=1777915225~hmac=30da7559b1ebc161194cfdc8b243ec9a3d5b3c247c76896f72da63a65dfd8eb6&w=2000')",
           backgroundRepeat: 'no-repeat',
           backgroundSize: 'cover',
           backgroundPosition: 'center',
-          opacity: 0.99,
+          opacity: 1,
         }}
       />
       <div
         className="absolute inset-0 pointer-events-none"
-        style={{ background: 'rgba(255,255,255,0.25)' }}
+        style={{ background: 'rgba(255,255,255,0.05)' }}
       />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-12">

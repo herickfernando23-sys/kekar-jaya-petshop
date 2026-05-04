@@ -1,0 +1,80 @@
+@startuml USECASE_KEKAR_JAYA
+' Use Case Diagram untuk KEKAR JAYA Pet Shop
+
+left to right direction
+
+actor Customer as C
+actor Admin as A
+actor System as S
+
+package "KEKAR JAYA Pet Shop System" {
+  usecase "Browse Produk" as UC1
+  usecase "Lihat Detail Produk" as UC2
+  usecase "Tambah ke Keranjang" as UC3
+  usecase "Lihat Keranjang" as UC4
+  usecase "Checkout" as UC5
+  usecase "Bayar Pesanan" as UC6
+  usecase "Tracking Pesanan" as UC7
+  usecase "Buat Review" as UC8
+  usecase "Hubungi WhatsApp" as UC9
+  
+  usecase "Login" as UC10
+  usecase "Register" as UC11
+  usecase "Kelola Profil" as UC12
+  
+  usecase "Login Admin" as UC20
+  usecase "Kelola Produk" as UC21
+  usecase "Tambah Produk" as UC22
+  usecase "Edit Produk" as UC23
+  usecase "Hapus Produk" as UC24
+  usecase "Kelola Kategori" as UC25
+  usecase "Lihat Pesanan" as UC26
+  usecase "Update Status Pesanan" as UC27
+  usecase "Lihat Ulasan" as UC28
+  
+  usecase "Kirim Notifikasi" as UC30
+  usecase "Catat Log Aktivitas" as UC31
+}
+
+' Customer Use Cases
+C --> UC1
+C --> UC2
+C --> UC3
+C --> UC4
+C --> UC5
+C --> UC6
+C --> UC7
+C --> UC8
+C --> UC9
+C --> UC10
+C --> UC11
+C --> UC12
+
+' Admin Use Cases
+A --> UC20
+A --> UC21
+A --> UC22
+A --> UC23
+A --> UC24
+A --> UC25
+A --> UC26
+A --> UC27
+A --> UC28
+
+' System Use Cases
+S --> UC30
+S --> UC31
+
+' Include Relationships
+UC5 .> UC6 : <<include>>
+UC21 .> UC22 : <<include>>
+UC21 .> UC23 : <<include>>
+UC21 .> UC24 : <<include>>
+
+' Extend Relationships
+UC2 .> UC3 : <<extend>>
+UC3 .> UC4 : <<extend>>
+UC6 .> UC30 : <<extend>>
+UC26 .> UC27 : <<extend>>
+
+@enduml

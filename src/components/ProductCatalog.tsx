@@ -346,37 +346,46 @@ export function ProductCatalog() {
       <div
         className="absolute inset-0 pointer-events-none"
         style={{
-          backgroundImage: "url('https://img.magnific.com/free-vector/flat-design-paw-prints-background_23-2151130235.jpg')",
+          backgroundImage: "url('https://img.magnific.com/free-vector/cat-dog-pawprint-pattern-white-background_1017-58411.jpg?t=st=1777911625~exp=1777915225~hmac=30da7559b1ebc161194cfdc8b243ec9a3d5b3c247c76896f72da63a65dfd8eb6&w=2000')",
           backgroundRepeat: 'repeat',
-          backgroundSize: '440px',
+          backgroundSize: '900px',
           backgroundPosition: '0 0',
-          opacity: 0.95,
+          opacity: 1,
         }}
       />
       <div
         className="absolute inset-0 pointer-events-none"
         style={{
-          background: '#d0e6fc',
-          opacity: 0.35,
+          background: '#f0caa6',
+          opacity: 0.25,
           mixBlendMode: 'multiply',
         }}
       />
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-12">
-          <h2
+          <div
+            className="reveal-on-scroll mx-auto mb-8 inline-block rounded-3xl px-6 py-4"
             data-reveal
-            className="reveal-on-scroll text-3xl sm:text-4xl font-bold text-black mb-4"
-            style={{ textShadow: '0 6px 20px rgba(0,0,0,0.45)' }}
+            style={{
+              backdropFilter: 'blur(5px)',
+              WebkitBackdropFilter: 'blur(10px)',
+              background: 'rgba(255, 255, 255, 0.22)',
+              boxShadow: '0 12px 28px rgba(15, 23, 42, 0.08)',
+            }}
           >
-            Katalog Produk
-          </h2>
-          <p
-            data-reveal
-            className="reveal-on-scroll text-black max-w-2xl mx-auto mb-8 font-semibold"
-            style={{ ['--reveal-delay' as string]: '80ms', textShadow: '0 3px 12px rgba(0,0,0,0.32)' }}
-          >
-            Pilihan produk lengkap untuk kebutuhan kucing kesayangan Anda
-          </p>
+            <h2
+              className="text-3xl sm:text-4xl font-bold text-black mb-2"
+              style={{ textShadow: '0 6px 20px rgba(0,0,0,0.45)' }}
+            >
+              Katalog Produk
+            </h2>
+            <p
+              className="text-black max-w-2xl mx-auto font-semibold"
+              style={{ textShadow: '0 3px 12px rgba(0,0,0,0.32)' }}
+            >
+              Pilihan produk lengkap untuk kebutuhan kucing kesayangan Anda
+            </p>
+          </div>
           {productSource === 'local' && productLoadNote && (
             <p data-reveal className="reveal-on-scroll mx-auto mb-6 max-w-2xl rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800" style={{ ['--reveal-delay' as string]: '120ms' }}>
               {productLoadNote}

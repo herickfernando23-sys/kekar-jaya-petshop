@@ -1,0 +1,91 @@
+@startuml ERD_KEKAR_JAYA
+' Entity Relationship Diagram untuk KEKAR JAYA Pet Shop
+
+entity User {
+  * id_user : INT <<PK>>
+  * username : VARCHAR(50)
+  * password : VARCHAR(255)
+  * email : VARCHAR(100)
+  * nama_lengkap : VARCHAR(100)
+  * no_hp : VARCHAR(15)
+  * alamat : TEXT
+  * tipe_user : ENUM(admin, customer)
+  created_at : TIMESTAMP
+  updated_at : TIMESTAMP
+}
+
+entity Product {
+  * id_produk : INT <<PK>>
+  * nama_produk : VARCHAR(100)
+  * deskripsi : TEXT
+  * harga : DECIMAL(10,2)
+  * stok : INT
+  * kategori : VARCHAR(50)
+  * gambar_url : VARCHAR(255)
+  * status : ENUM(tersedia, tidak_tersedia)
+  created_at : TIMESTAMP
+  updated_at : TIMESTAMP
+}
+
+entity Cart {
+  * id_cart : INT <<PK>>
+  * id_user : INT <<FK>>
+  created_at : TIMESTAMP
+  updated_at : TIMESTAMP
+}
+
+entity CartItem {
+  * id_cart_item : INT <<PK>>
+  * id_cart : INT <<FK>>
+  * id_produk : INT <<FK>>
+  * jumlah : INT
+  * harga_satuan : DECIMAL(10,2)
+  added_at : TIMESTAMP
+}
+
+entity Order {
+  * id_order : INT <<PK>>
+  * id_user : INT <<FK>>
+  * total_harga : DECIMAL(10,2)
+  * status : ENUM(pending, diproses, dikirim, selesai, dibatalkan)
+  * metode_pembayaran : VARCHAR(50)
+  * alamat_pengiriman : TEXT
+  created_at : TIMESTAMP
+  updated_at : TIMESTAMP
+}
+
+entity OrderDetail {
+  * id_order_detail : INT <<PK>>
+  * id_order : INT <<FK>>
+  * id_produk : INT <<FK>>
+  * jumlah : INT
+  * harga_satuan : DECIMAL(10,2)
+  subtotal : DECIMAL(10,2)
+}
+
+entity Category {
+  * id_kategori : INT <<PK>>
+  * nama_kategori : VARCHAR(50)
+  * deskripsi : TEXT
+}
+
+entity Review {
+  * id_review : INT <<PK>>
+  * id_produk : INT <<FK>>
+  * id_user : INT <<FK>>
+  * rating : INT(1-5)
+  * komentar : TEXT
+  created_at : TIMESTAMP
+}
+
+User ||--o{ Cart : memiliki
+Cart ||--o{ CartItem : berisi
+CartItem }o--|| Product : untuk
+User ||--o{ Order : membuat
+Order ||--o{ OrderDetail : berisi
+OrderDetail }o--|| Product : berisi
+Product }o--|| Category : masuk_kategori
+Product ||--o{ Review : dapat_review
+User ||--o{ Review : membuat_review
+
+@enduml
