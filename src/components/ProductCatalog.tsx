@@ -651,14 +651,13 @@ export function ProductCatalog() {
                     <button
                       onClick={() => {
                         const targetQuantity = Math.min(selectedQuantities[product.id] || 1, Math.max(1, dbStock));
-                        const quantityToAdd = Math.max(0, targetQuantity - inCartQuantity);
-                        if (quantityToAdd <= 0) {
+                        if (targetQuantity <= 0) {
                           return;
                         }
 
                           const variant = product.variants ? product.variants[selectedVariantIndex] : undefined;
                           const variantId = variant?.id;
-                          for (let i = 0; i < quantityToAdd; i += 1) {
+                          for (let i = 0; i < targetQuantity; i += 1) {
                             addToCart({
                               id: product.id,
                               name: product.name,
@@ -674,7 +673,7 @@ export function ProductCatalog() {
                           new CustomEvent('cart-notify', {
                             detail: {
                               productName: variant?.name ?? product.name,
-                              quantity: quantityToAdd,
+                              quantity: targetQuantity,
                               autoOpen: true,
                             },
                           })
