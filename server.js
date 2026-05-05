@@ -727,6 +727,62 @@ app.post('/orders/:id/confirm', async (req, res) => {
   }
 });
 
+// DELETE /orders/:id - Hapus order pending dengan token yang cocok
+app.delete('/orders/:id', async (req, res) => {
+  const orderId = Number(req.params.id);
+  const tokenFromQuery = req.query.token || req.body.token || null;
+
+  if (!Number.isInteger(orderId) || orderId <= 0) {
+    return res.status(400).json({ error: 'ID order tidak valid' });
+  }
+
+  if (!tokenFromQuery || typeof tokenFromQuery !== 'string' || !tokenFromQuery.trim()) {
+    return res.status(400).json({ error: 'Token hapus tidak valid' });
+  }
+
+  const token = tokenFromQuery.trim();
+  let connection;
+
+  try {
+    connection = await pool.getConnection();
+    await connection.beginTransaction();
+
+    const [orderRows] = await connection.query('SELECT id, status, notes FROM orders WHERE id = ? LIMIT 1', [orderId]);
+    if (orderRows.length === 0) {
+      await connection.rollback();
+      connection.release();
+      return res.status(404).json({ error: 'Order tidak ditemukan' });
+    }
+
+    const order = orderRows[0];
+    if (order.status !== 'pending') {
+      await connection.rollback();
+      connection.release();
+      return res.status(400).json({ error: 'Hanya order pending yang bisa dihapus' });
+    }
+
+    if (!order.notes || String(order.notes) !== token) {
+      await connection.rollback();
+      connection.release();
+      return res.status(400).json({ error: 'Token hapus tidak valid' });
+    }
+
+    await connection.query('DELETE FROM order_items WHERE order_id = ?', [orderId]);
+    await connection.query('DELETE FROM orders WHERE id = ?', [orderId]);
+
+    await connection.commit();
+    connection.release();
+    return res.json({ message: 'Order pending berhasil dihapus' });
+  } catch (error) {
+    if (connection) {
+      try { await connection.rollback(); } catch {}
+      connection.release();
+    }
+    console.error('Error deleting order:', error);
+    return res.status(500).json({ error: 'Gagal menghapus order' });
+  }
+});
+
 // GET /orders?customerPhone=... - Ambil semua order milik customer tertentu
 app.get('/orders', async (req, res) => {
   const customerPhone = req.query.customerPhone;

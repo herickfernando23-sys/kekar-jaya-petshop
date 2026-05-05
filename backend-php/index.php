@@ -567,6 +567,47 @@ try {
         jsonResponse(['message' => 'Order berhasil dibuat', 'orderId' => $orderId]);
     }
 
+    if ($requestMethod === 'DELETE' && preg_match('#^/orders/(\d+)$#', $requestPath, $matches)) {
+        $orderId = (int) $matches[1];
+        $body = parseJsonBody();
+        $token = $_GET['token'] ?? ($body['token'] ?? null);
+
+        if (!is_string($token) || trim($token) === '') {
+            jsonResponse(['error' => 'Token hapus tidak valid'], 400);
+        }
+        $token = trim($token);
+
+        $pdo->beginTransaction();
+
+        $orderStmt = $pdo->prepare('SELECT id, status, notes FROM orders WHERE id = ? LIMIT 1');
+        $orderStmt->execute([$orderId]);
+        $order = $orderStmt->fetch();
+
+        if (!$order) {
+            $pdo->rollBack();
+            jsonResponse(['error' => 'Order tidak ditemukan'], 404);
+        }
+
+        if ($order['status'] !== 'pending') {
+            $pdo->rollBack();
+            jsonResponse(['error' => 'Hanya order pending yang bisa dihapus'], 400);
+        }
+
+        if ((string) $order['notes'] !== $token) {
+            $pdo->rollBack();
+            jsonResponse(['error' => 'Token hapus tidak valid'], 400);
+        }
+
+        $deleteItemsStmt = $pdo->prepare('DELETE FROM order_items WHERE order_id = ?');
+        $deleteItemsStmt->execute([$orderId]);
+
+        $deleteOrderStmt = $pdo->prepare('DELETE FROM orders WHERE id = ?');
+        $deleteOrderStmt->execute([$orderId]);
+
+        $pdo->commit();
+        jsonResponse(['message' => 'Order pending berhasil dihapus']);
+    }
+
     if ($requestMethod === 'POST' && preg_match('#^/orders/(\d+)/confirm$#', $requestPath, $matches)) {
         $orderId = (int) $matches[1];
         $body = parseJsonBody();

@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CheckCircle2, Clock3, RefreshCw, X } from 'lucide-react';
+import { CheckCircle2, Clock3, RefreshCw, Trash2, X } from 'lucide-react';
 import { getStoredProducts, PRODUCT_STORAGE_KEY, DELETED_PRODUCT_IDS_KEY } from '../data/products';
 import type { Product, ProductVariant } from '../data/products';
 
@@ -86,6 +86,7 @@ const AdminDashboard = () => {
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [ordersError, setOrdersError] = useState('');
   const [confirmingOrderId, setConfirmingOrderId] = useState<number | null>(null);
+  const [deletingOrderId, setDeletingOrderId] = useState<number | null>(null);
   const [undoDeletedProduct, setUndoDeletedProduct] = useState<{ product: Product; index: number } | null>(null);
   const [editPanelOffsetTop, setEditPanelOffsetTop] = useState(0);
   const undoTimerRef = useRef<number | null>(null);
@@ -247,6 +248,48 @@ const AdminDashboard = () => {
       window.alert(error?.message || 'Terjadi kesalahan saat mengonfirmasi pembayaran.');
     } finally {
       setConfirmingOrderId(null);
+    }
+  };
+
+  const handleDeletePendingOrder = async (order: AdminOrder) => {
+    if (!order.notes) {
+      window.alert('Token hapus untuk order ini tidak tersedia.');
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Hapus order pending ${order.order_number}? Tindakan ini tidak bisa dibatalkan.`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setDeletingOrderId(order.id);
+
+    try {
+      const response = await fetch(
+        `${apiBaseUrl}/orders/${order.id}?token=${encodeURIComponent(order.notes)}`,
+        { method: 'DELETE' }
+      );
+
+      let responseBody: any = null;
+      try {
+        responseBody = await response.json();
+      } catch {
+        responseBody = null;
+      }
+
+      if (!response.ok) {
+        throw new Error(responseBody?.error || 'Gagal menghapus order pending.');
+      }
+
+      await syncOrdersFromServer();
+      window.alert('Order pending berhasil dihapus.');
+    } catch (error: any) {
+      window.alert(error?.message || 'Terjadi kesalahan saat menghapus order.');
+    } finally {
+      setDeletingOrderId(null);
     }
   };
 
@@ -903,16 +946,28 @@ const AdminDashboard = () => {
                     <div className="text-xs text-gray-500">
                       Setelah dikonfirmasi, status order berubah menjadi confirmed dan stok dikurangi otomatis.
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => handleConfirmPayment(order)}
-                      disabled={confirmingOrderId === order.id}
-                      className="inline-flex items-center gap-2 rounded-xl border-2 border-blue-700 px-4 py-2 text-sm font-extrabold shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-60"
-                      style={{ backgroundColor: '#2563eb', color: '#ffffff', borderColor: '#1d4ed8' }}
-                    >
-                      <CheckCircle2 className="h-4 w-4" />
-                      {confirmingOrderId === order.id ? 'Memproses...' : 'Konfirmasi Pembayaran'}
-                    </button>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleDeletePendingOrder(order)}
+                        disabled={deletingOrderId === order.id || confirmingOrderId === order.id}
+                        className="inline-flex items-center gap-2 rounded-xl border-2 border-red-700 px-4 py-2 text-sm font-extrabold shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-60"
+                        style={{ backgroundColor: '#ef4444', color: '#ffffff', borderColor: '#dc2626' }}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        {deletingOrderId === order.id ? 'Menghapus...' : 'Hapus'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleConfirmPayment(order)}
+                        disabled={confirmingOrderId === order.id || deletingOrderId === order.id}
+                        className="inline-flex items-center gap-2 rounded-xl border-2 border-blue-700 px-4 py-2 text-sm font-extrabold shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-60"
+                        style={{ backgroundColor: '#2563eb', color: '#ffffff', borderColor: '#1d4ed8' }}
+                      >
+                        <CheckCircle2 className="h-4 w-4" />
+                        {confirmingOrderId === order.id ? 'Memproses...' : 'Konfirmasi Pembayaran'}
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}

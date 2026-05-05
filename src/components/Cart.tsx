@@ -10,6 +10,7 @@ export function Cart() {
   const [isSubmittingCheckout, setIsSubmittingCheckout] = React.useState(false);
   const [notification, setNotification] = React.useState<string | null>(null);
   const notificationTimeoutRef = React.useRef<number | null>(null);
+  const checkoutRequestLockRef = React.useRef(false);
   const apiBaseUrl = (((import.meta as any).env?.VITE_API_BASE_URL as string) || 'http://localhost:5000')
     .replace(/\/+$/, '');
   const CHECKOUT_DUPLICATE_WINDOW_MS = 90_000;
@@ -29,6 +30,27 @@ export function Cart() {
     }
 
     return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  };
+
+  const openUrlSafely = (url: string) => {
+    try {
+      const newWindow = window.open(url, '_blank', 'noopener,noreferrer');
+      if (!newWindow) {
+        // Popup blocked — try navigation in same tab as a last resort
+        // or synthesize an anchor click which some browsers prefer
+        const a = document.createElement('a');
+        a.href = url;
+        a.target = '_blank';
+        a.rel = 'noopener noreferrer';
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      }
+    } catch (e) {
+      // Fallback to location change if everything else fails
+      try { window.location.href = url; } catch {}
+    }
   };
 
   const buildCheckoutFingerprint = () => (
@@ -52,9 +74,12 @@ export function Cart() {
   const handleCheckoutWhatsApp = async () => {
     if (cart.length === 0) return;
 
-    if (isSubmittingCheckout) {
+    if (isSubmittingCheckout || checkoutRequestLockRef.current) {
+      showCheckoutNotification('Pesanan sedang diproses. Tunggu sebentar sebelum mencoba lagi.');
       return;
     }
+
+    checkoutRequestLockRef.current = true;
 
     const checkoutFingerprint = buildCheckoutFingerprint();
     const lastCheckoutSentAt = Number(localStorage.getItem(LAST_CHECKOUT_SENT_AT_KEY) || 0);
@@ -104,7 +129,7 @@ export function Cart() {
       `Halo Toko Kekar Jaya, saya ingin order produk berikut:\n\n${itemsText}\n\nTotal Harga: ${getTotalPrice()}\n\nMohon diproses, saya menunggu konfirmasi dari admin.\n\nTerima kasih.`
     );
 
-    window.open(`https://wa.me/6282284526105?text=${message}`, '_blank');
+    openUrlSafely(`https://wa.me/6282284526105?text=${message}`);
 
     void orderRequest
       .then(async (response) => {
@@ -138,6 +163,7 @@ export function Cart() {
         );
       })
       .finally(() => {
+        checkoutRequestLockRef.current = false;
         setIsSubmittingCheckout(false);
       });
 
@@ -450,8 +476,13 @@ export function Cart() {
               <div className="px-6 py-4 border-t flex gap-3" style={{ borderColor: '#ffedd5', backgroundColor: '#fffdf8' }}>
                 <button
                   type="button"
-                  onClick={() => setIsCheckoutReviewOpen(false)}
+                  onClick={() => {
+                    if (!isSubmittingCheckout) {
+                      setIsCheckoutReviewOpen(false);
+                    }
+                  }}
                   className="flex-1 min-h-11 rounded-xl border border-gray-200 bg-white px-4 py-2.5 font-semibold text-gray-700 hover:bg-gray-50"
+                  disabled={isSubmittingCheckout}
                 >
                   Batal
                 </button>
