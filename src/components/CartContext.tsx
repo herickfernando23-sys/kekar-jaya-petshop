@@ -147,6 +147,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener('storage', handleStorage as EventListener);
   }, []);
 
+  const getCartQuantity = (id: number, variant?: string) => (
+    cart
+      .filter(item => item.id === id && (item.variant ?? '__default__') === (variant ?? '__default__'))
+      .reduce((sum, item) => sum + item.quantity, 0)
+  );
+
   useEffect(() => {
     if (typeof window === 'undefined') {
       return;
@@ -168,13 +174,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
       dbStock = product ? product.stock : 0;
     }
 
-    // Calculate items already in cart for this product/variant
-    const cartQuantity = cart
-      .filter(item => item.id === id && (item.variant ?? '__default__') === (variant ?? '__default__'))
-      .reduce((sum, item) => sum + item.quantity, 0);
+    return dbStock;
+  };
 
-    // Available stock = database stock - cart items
-    return Math.max(0, dbStock - cartQuantity);
+  const getAvailableStock = (id: number, variant?: string): number => {
+    const dbStock = getProductStock(id, variant);
+    return Math.max(0, dbStock - getCartQuantity(id, variant));
   };
 
   const updateProductStock = (id: number, newStock: number, variant?: string) => {
@@ -249,7 +254,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
   };
 
   const addToCart = (item: Omit<CartItem, 'quantity'>) => {
-    const currentStock = getProductStock(item.id, item.variant);
+    const currentStock = getAvailableStock(item.id, item.variant);
     // Check if stock is available
     if (currentStock <= 0) {
       alert('Maaf, produk ini sedang habis stok!');
@@ -282,7 +287,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }
 
     // Check if we have enough stock
-    const currentStock = getProductStock(id, variant);
+    const currentStock = getAvailableStock(id, variant);
     const currentItem = cart.find(item => item.id === id && item.variant === variant);
     
     if (!currentItem) return;

@@ -520,13 +520,6 @@ export function ProductCatalog() {
             const displayPrice = currentVariant?.price ?? product.price;
             const displayImage = currentVariant?.image ?? product.image;
             const dbStock = currentVariant?.stock ?? product.stock ?? 0;
-            const inCartQuantity = cart
-              .filter((item) => (
-                item.id === product.id &&
-                (item.variant ?? '__default__') === (currentVariant?.name ?? '__default__')
-              ))
-              .reduce((sum, item) => sum + item.quantity, 0);
-            const availableStock = Math.max(0, dbStock - inCartQuantity);
 
             return (
               <div
@@ -607,7 +600,7 @@ export function ProductCatalog() {
                           className="w-9 h-9 rounded-full flex items-center justify-center transition-all disabled:opacity-40 disabled:cursor-not-allowed hover:scale-105"
                           style={{ background: 'linear-gradient(135deg, #eef2f7 0%, #dbe4ee 100%)' }}
                           aria-label="Kurangi jumlah"
-                          disabled={availableStock === 0}
+                          disabled={dbStock === 0}
                         >
                           <Minus className="w-4 h-4 text-gray-700" />
                         </button>
@@ -685,14 +678,14 @@ export function ProductCatalog() {
                           [product.id]: 1
                         }));
                       }}
-                      disabled={dbStock === 0 || availableStock === 0}
+                      disabled={dbStock === 0}
                       className={`w-full flex items-center justify-center gap-2 px-4 py-2 rounded-full transition-all font-semibold ${
-                        dbStock === 0 || availableStock === 0
+                        dbStock === 0
                           ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
                           : 'bg-gradient-to-r from-orange-500 to-orange-600 text-white hover:shadow-lg'
                       }`}
                     >
-                      {dbStock === 0 || availableStock === 0 ? '🚫 Stok Habis' : '🛒 Tambah ke Keranjang'}
+                      {dbStock === 0 ? '🚫 Stok Habis' : '🛒 Tambah ke Keranjang'}
                     </button>
                   </div>
                 </div>
