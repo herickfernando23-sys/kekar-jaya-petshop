@@ -113,6 +113,45 @@ export function CartProvider({ children }: { children: ReactNode }) {
       return;
     }
 
+    const handleCheckoutConfirmed = () => {
+      finalizeCheckoutClearCart();
+      // Notify UI components that cart was cleared so they can react (close, toast, etc.)
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('cart-cleared', { detail: { message: 'Keranjang telah dikosongkan' } }));
+      }
+    };
+
+    window.addEventListener('checkout-payment-confirmed', handleCheckoutConfirmed);
+
+    return () => {
+      window.removeEventListener('checkout-payment-confirmed', handleCheckoutConfirmed);
+    };
+  }, []);
+
+  // Listen for storage events so we can react when another tab clears the cart
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const handleStorage = (event: StorageEvent) => {
+      try {
+        if (event.key === 'cart_cleared' || (event.key === CART_STORAGE_KEY && event.newValue === null)) {
+          finalizeCheckoutClearCart();
+          window.dispatchEvent(new CustomEvent('cart-cleared', { detail: { message: 'Keranjang telah dikosongkan' } }));
+        }
+      } catch (e) {
+        // ignore
+      }
+    };
+
+    window.addEventListener('storage', handleStorage as EventListener);
+    return () => window.removeEventListener('storage', handleStorage as EventListener);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
     localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart));
   }, [cart]);
 

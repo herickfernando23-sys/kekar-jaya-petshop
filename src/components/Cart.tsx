@@ -193,8 +193,17 @@ export function Cart() {
 
     window.addEventListener('cart-notify', handleCartNotify as EventListener);
 
+    const handleCartCleared = (event: Event) => {
+      const e = event as CustomEvent<{ message?: string }>;
+      setIsOpen(false);
+      showCheckoutNotification(e.detail?.message || 'Keranjang dikosongkan', 3200);
+    };
+
+    window.addEventListener('cart-cleared', handleCartCleared as EventListener);
+
     return () => {
       window.removeEventListener('cart-notify', handleCartNotify as EventListener);
+      window.removeEventListener('cart-cleared', handleCartCleared as EventListener);
       if (notificationTimeoutRef.current !== null) {
         window.clearTimeout(notificationTimeoutRef.current);
       }

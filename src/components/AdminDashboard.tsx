@@ -242,6 +242,19 @@ const AdminDashboard = () => {
         throw new Error(responseBody?.error || 'Gagal mengonfirmasi pembayaran.');
       }
 
+      // Fire event immediately so cart is cleared for the user without waiting
+      // for product/order sync to complete.
+      window.dispatchEvent(new Event('checkout-payment-confirmed'));
+      // Also dispatch a direct 'cart-cleared' event so open cart panels close right away.
+      window.dispatchEvent(new CustomEvent('cart-cleared', { detail: { message: 'Keranjang telah dikosongkan oleh konfirmasi pembayaran' } }));
+      // For cross-tab sync (other browser tabs), remove stored cart and set a cart-cleared flag
+      try {
+        localStorage.removeItem('cartItems');
+        localStorage.setItem('cart_cleared', String(Date.now()));
+      } catch (e) {
+        // ignore storage errors
+      }
+
       await Promise.all([syncProductsFromServer(), syncOrdersFromServer()]);
       window.alert('Pembayaran berhasil dikonfirmasi. Stok sudah diperbarui otomatis.');
     } catch (error: any) {
