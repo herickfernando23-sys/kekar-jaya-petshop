@@ -62,7 +62,7 @@ export function Hero() {
                 <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
               </button>
               <a
-                href="https://wa.me/6282284526105?text=Halo%20Toko%20Kekar%20Jaya%2C%20saya%20ingin%20bertanya"
+                href="https://wa.me/628952385674?text=Halo%20Toko%20Kekar%20Jaya%2C%20saya%20ingin%20bertanya"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center justify-center gap-2 bg-white border text-orange-700 px-8 py-4 rounded-full hover:bg-orange-50 transition-all font-semibold"

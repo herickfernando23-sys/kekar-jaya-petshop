@@ -73,7 +73,7 @@ export function Navbar() {
               Kontak
             </button>
             <a
-              href="https://wa.me/6282284526105?text=Halo%20Toko%20Kekar%20Jaya%2C%20saya%20ingin%20bertanya"
+              href="https://wa.me/6289523856749?text=Halo%20Toko%20Kekar%20Jaya%2C%20saya%20ingin%20bertanya"
               target="_blank"
               rel="noopener noreferrer"
               className="text-white px-6 py-2 rounded-full font-semibold transition-all"
@@ -131,7 +131,7 @@ export function Navbar() {
               Kontak
             </button>
             <a
-              href="https://wa.me/6282284526105?text=Halo%20Toko%20Kekar%20Jaya%2C%20saya%20ingin%20bertanya"
+              href="https://wa.me/6289523856749?text=Halo%20Toko%20Kekar%20Jaya%2C%20saya%20ingin%20bertanya"
               target="_blank"
               rel="noopener noreferrer"
               className="block mx-4 text-center text-white px-6 py-2 rounded-full font-semibold"

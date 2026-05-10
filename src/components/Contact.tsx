@@ -41,7 +41,7 @@ export function Contact() {
               <div className="space-y-6">
                 {/* WhatsApp */}
                 <a
-                  href="https://wa.me/6282284526105?text=Halo%20Toko%20Kekar%20Jaya%2C%20saya%20ingin%20bertanya"
+                  href="https://wa.me/6289523856749?text=Halo%20Toko%20Kekar%20Jaya%2C%20saya%20ingin%20bertanya"
                   target="_blank"
                   rel="noopener noreferrer"
                   data-reveal
@@ -53,7 +53,7 @@ export function Contact() {
                   </div>
                   <div>
                     <p className="font-semibold text-gray-900 mb-1">WhatsApp (Preferred)</p>
-                    <p className="text-gray-700">+62 822-8452-6105</p>
+                    <p className="text-gray-700">+62 895-2385-6749</p>
                     <p className="text-sm text-orange-600 mt-1">Klik untuk chat langsung</p>
                   </div>
                 </a>
@@ -65,7 +65,7 @@ export function Contact() {
                   </div>
                   <div>
                     <p className="font-semibold text-gray-900 mb-1">Telepon</p>
-                    <p className="text-gray-700">0822-8452-6105</p>
+                    <p className="text-gray-700">+62 895-2385-6749</p>
                   </div>
                 </div>
 
@@ -132,7 +132,7 @@ export function Contact() {
                 Tim kami siap membantu Anda memilih produk terbaik untuk kucing kesayangan Anda.
               </p>
               <a
-                href="https://wa.me/6282284526105?text=Halo%20Toko%20Kekar%20Jaya%2C%20saya%20butuh%20bantuan"
+                href="https://wa.me/6289523856749?text=Halo%20Toko%20Kekar%20Jaya%2C%20saya%20butuh%20bantuan"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 bg-white px-6 py-3 rounded-full font-semibold hover:shadow-xl transition-all"

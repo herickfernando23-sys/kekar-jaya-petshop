@@ -129,7 +129,7 @@ export function Cart() {
       `Halo Toko Kekar Jaya, saya ingin order produk berikut:\n\n${itemsText}\n\nTotal Harga: ${getTotalPrice()}\n\nMohon diproses, saya menunggu konfirmasi dari admin.\n\nTerima kasih.`
     );
 
-    openUrlSafely(`https://wa.me/6282284526105?text=${message}`);
+    openUrlSafely(`https://wa.me/628952385674?text=${message}`);
 
     void orderRequest
       .then(async (response) => {

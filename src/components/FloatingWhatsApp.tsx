@@ -4,7 +4,7 @@ import { motion } from "motion/react";
 export function FloatingWhatsApp() {
   return (
     <motion.a
-      href="https://wa.me/6282284526105?text=Halo%20Toko%20Kekar%20Jaya%2C%20saya%20ingin%20bertanya"
+      href="https://wa.me/6289523856749?text=Halo%20Toko%20Kekar%20Jaya%2C%20saya%20ingin%20bertanya"
       target="_blank"
       rel="noopener noreferrer"
       className="fixed bottom-6 right-6 w-14 h-14 rounded-full flex items-center justify-center shadow-2xl hover:shadow-green-500/50 transition-all z-50 group"
