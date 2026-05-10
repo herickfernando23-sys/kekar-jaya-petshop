@@ -6,7 +6,7 @@ export function Contact() {
       <div
         className="absolute inset-0 pointer-events-none"
         style={{
-          backgroundImage: "url('https://img.magnific.com/free-photo/top-view-animal-food-with-paw-print-animal-day_23-2148668905.jpg?t=st=1777911625~exp=1777915225~hmac=30da7559b1ebc161194cfdc8b243ec9a3d5b3c247c76896f72da63a65dfd8eb6&w=2000')",
+          backgroundImage: "url('/images/top-view-animal-food-with-paw-print-animal-day.jpg')",
           backgroundRepeat: 'no-repeat',
           backgroundSize: 'cover',
           backgroundPosition: 'center',
