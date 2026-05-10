@@ -88,6 +88,67 @@ const pool = mysql.createPool({
   queueLimit: 0,
 });
 
+// Fallback mock data when database is not available
+const FALLBACK_MOCK_DATA = [
+  {
+    id: 6,
+    category_id: 1,
+    category_name: 'Makanan Kucing',
+    name: 'WHISKAS Junior',
+    slug: 'whiskas-junior',
+    description: 'Makanan khusus untuk anak kucing dengan nutrisi lengkap',
+    base_price: 70000,
+    stock: 30,
+    image_url: '/images/whiskas.jpg',
+    is_active: 1,
+    variants: [
+      { id: 1, product_id: 6, name: 'Whiskas Junior Rasa Ikan Laut', price: 70000, stock: 12, image_url: '/images/whiskas.jpg' },
+      { id: 2, product_id: 6, name: 'Whiskas Junior Mackerel Flavor', price: 70000, stock: 8, image_url: '/images/whiskasmackarel.jpg' },
+      { id: 3, product_id: 6, name: 'Whiskas Junior Tuna & Salmon Flavour', price: 70000, stock: 10, image_url: '/images/whiskastuna.jpg' }
+    ]
+  },
+  {
+    id: 7,
+    category_id: 1,
+    category_name: 'Makanan Kucing',
+    name: 'Furlove',
+    slug: 'furlove',
+    description: 'Makanan premium untuk kucing dewasa',
+    base_price: 15000,
+    stock: 40,
+    image_url: '/images/furlove.jpg',
+    is_active: 1,
+    variants: [
+      { id: 4, product_id: 7, name: 'Furlove (kaleng)', price: 15000, stock: 20, image_url: '/images/furlove.jpg' },
+      { id: 5, product_id: 7, name: 'Furlove Tuna dry cat food', price: 28500, stock: 20, image_url: '/images/furlovedry.jpg' }
+    ]
+  },
+  {
+    id: 8,
+    category_id: 1,
+    category_name: 'Makanan Kucing',
+    name: 'Cat Choize',
+    slug: 'cat-choize',
+    description: 'Makanan kucing dengan protein berkualitas tinggi',
+    base_price: 15500,
+    stock: 35,
+    image_url: '/images/catchoize.jpg',
+    is_active: 1,
+    variants: [
+      { id: 6, product_id: 8, name: 'Tuna Flavor', price: 15500, stock: 9, image_url: '/images/catchoize.jpg' },
+      { id: 7, product_id: 8, name: 'Tuna with Milk (dry)', price: 30000, stock: 8, image_url: '/images/catchoize2.jpg' },
+      { id: 8, product_id: 8, name: 'Cat Choize Adult Cat Dry Food Tuna', price: 21000, stock: 9, image_url: '/images/catchoizetuna.jpg' },
+      { id: 9, product_id: 8, name: 'Cat Choize Kitten Salmon with Milk (dry)', price: 33000, stock: 9, image_url: '/images/catchoizesalmon.jpg' }
+    ]
+  }
+];
+
+const FALLBACK_CATEGORIES = [
+  { id: 1, name: 'Makanan Kucing', slug: 'makanan-kucing' },
+  { id: 2, name: 'Pasir Kucing', slug: 'pasir-kucing' },
+  { id: 3, name: 'Kandang Kucing', slug: 'kandang-kucing' }
+];
+
 // Health check
 app.get('/health', (req, res) => {
   res.json({ status: 'API running ✅', timestamp: new Date() });
@@ -138,8 +199,10 @@ app.get('/products', async (req, res) => {
 
     res.json(productsWithVariants);
   } catch (error) {
-    console.error('Error fetching products:', error);
-    res.status(500).json({ error: 'Gagal mengambil data produk' });
+    console.error('Error fetching products from database:', error);
+    // Use fallback mock data when database is unavailable
+    console.warn('⚠️  Database unavailable - returning fallback mock data');
+    res.json(FALLBACK_MOCK_DATA);
   }
 });
 
@@ -155,8 +218,10 @@ app.get('/categories', async (req, res) => {
     connection.release();
     res.json(categories);
   } catch (error) {
-    console.error('Error fetching categories:', error);
-    res.status(500).json({ error: 'Gagal mengambil data kategori' });
+    console.error('Error fetching categories from database:', error);
+    // Use fallback categories when database is unavailable
+    console.warn('⚠️  Database unavailable - returning fallback categories');
+    res.json(FALLBACK_CATEGORIES);
   }
 });
 
@@ -191,7 +256,16 @@ app.get('/products/:id', async (req, res) => {
       variants,
     });
   } catch (error) {
-    console.error('Error fetching product:', error);
+    console.error('Error fetching product from database:', error);
+    // Try fallback mock data
+    const productId = Number(req.params.id);
+    const fallbackProduct = FALLBACK_MOCK_DATA.find(p => p.id === productId);
+    
+    if (fallbackProduct) {
+      console.warn('⚠️  Database unavailable - returning fallback product');
+      return res.json(fallbackProduct);
+    }
+    
     res.status(500).json({ error: 'Gagal mengambil data produk' });
   }
 });

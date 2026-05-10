@@ -223,9 +223,9 @@ export function ProductCatalog() {
         window.dispatchEvent(new Event('products-updated'));
       } catch (err) {
         console.error('Gagal fetch produk dari backend:', err);
-        setProducts([]);
+        setProducts(localProducts);
         setProductSource('local');
-        setProductLoadNote('Gagal mengambil data produk dari backend.');
+        setProductLoadNote('Backend tidak aktif, menampilkan data produk lokal.');
         window.dispatchEvent(new Event('products-updated'));
       } finally {
         if (showLoader) {
