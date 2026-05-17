@@ -75,11 +75,8 @@ export function Cart() {
     if (cart.length === 0) return;
 
     if (isSubmittingCheckout || checkoutRequestLockRef.current) {
-      showCheckoutNotification('Pesanan sedang diproses. Tunggu sebentar sebelum mencoba lagi.');
       return;
     }
-
-    checkoutRequestLockRef.current = true;
 
     const checkoutFingerprint = buildCheckoutFingerprint();
     const lastCheckoutSentAt = Number(localStorage.getItem(LAST_CHECKOUT_SENT_AT_KEY) || 0);
@@ -93,6 +90,8 @@ export function Cart() {
       showCheckoutNotification('Pesanan yang sama baru saja dikirim. Tunggu sebentar sebelum mengirim ulang.');
       return;
     }
+
+    checkoutRequestLockRef.current = true;
 
     setIsSubmittingCheckout(true);
 
@@ -129,7 +128,7 @@ export function Cart() {
       `Halo Toko Kekar Jaya, saya ingin order produk berikut:\n\n${itemsText}\n\nTotal Harga: ${getTotalPrice()}\n\nMohon diproses, saya menunggu konfirmasi dari admin.\n\nTerima kasih.`
     );
 
-    openUrlSafely(`https://wa.me/628952385674?text=${message}`);
+    openUrlSafely(`https://wa.me/6289523856749?text=${message}`);
 
     void orderRequest
       .then(async (response) => {
