@@ -1,4 +1,4 @@
-import { Cat, Menu, X } from 'lucide-react';
+import { Menu, X } from 'lucide-react';
 import { useState } from 'react';
 import { useLocation } from 'react-router-dom';
 
@@ -36,10 +36,11 @@ export function Navbar() {
             onClick={() => scrollToSection('hero')}
             className="flex items-center gap-3 hover:opacity-85 transition-opacity"
           >
-            <div className="w-10 h-10 rounded-full flex items-center justify-center"
-              style={{ background: 'linear-gradient(135deg, #fb923c, #f97316)' }}>
-              <Cat className="w-6 h-6 text-white" />
-            </div>
+            <img
+              src="/images/logokekar.jpeg"
+              alt="Toko Kekar Jaya"
+              className="w-10 h-10 rounded-full object-cover"
+            />
             <div className="flex flex-col items-start">
               <span className="font-bold text-lg text-gray-900">Toko Kekar Jaya</span>
               <span className="text-xs" style={{ color: '#f97316', letterSpacing: '0.08em' }}>PETSHOP SPECIALIST</span>
