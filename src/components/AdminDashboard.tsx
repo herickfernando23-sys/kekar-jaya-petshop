@@ -753,6 +753,17 @@ const AdminDashboard = () => {
   const handleSaveProduct = async () => {
     if (!editingProduct || !editingData) return;
 
+    // Ensure any pending input changes (from active element) are committed
+    // before reading `editingData` (fixes needing to click save twice).
+    try {
+      if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur();
+      }
+      await new Promise((r) => setTimeout(r, 0));
+    } catch {
+      // ignore
+    }
+
     const normalizedVariants = editingData.variants?.map((variant) => ({
       ...variant,
       stock: Math.max(0, variant.stock),
