@@ -219,22 +219,30 @@ export function Cart() {
   }, []);
 
   React.useEffect(() => {
-    console.log('[DEBUG] Cart isOpen ->', isOpen);
     if (!isOpen) return;
 
-    // Give layout a frame to settle then log bounds to help debug offscreen rendering
+    // If context shows empty but localStorage has items, request provider to resync
+    try {
+      if (getTotalItems() === 0) {
+        const raw = typeof window !== 'undefined' ? localStorage.getItem('cartItems') : null;
+        const parsed = raw ? JSON.parse(raw) : [];
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          window.dispatchEvent(new CustomEvent('cart-sync'));
+        }
+      }
+    } catch (e) {
+      // ignore
+    }
+
+    // Give layout a frame to settle then ensure panel is in view
     requestAnimationFrame(() => {
       try {
-        const panel = document.querySelector('.cart-panel');
-        const backdrop = document.querySelector('.cart-backdrop');
-        console.log('[DEBUG] cart-panel element:', panel);
-        console.log('[DEBUG] cart-panel rect:', panel?.getBoundingClientRect());
-        console.log('[DEBUG] cart-backdrop rect:', backdrop?.getBoundingClientRect());
-        if (panel && typeof (panel as HTMLElement).scrollIntoView === 'function') {
-          try { (panel as HTMLElement).scrollIntoView({ behavior: 'smooth', block: 'end' }); } catch(e) {}
+        const panel = document.querySelector('.cart-panel') as HTMLElement | null;
+        if (panel && typeof panel.scrollIntoView === 'function') {
+          try { panel.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) {}
         }
       } catch (e) {
-        console.warn('[DEBUG] failed to inspect cart elements', e);
+        // ignore
       }
     });
   }, [isOpen]);
@@ -343,24 +351,7 @@ export function Cart() {
                 <div>
                   <h2 className="text-xl leading-tight font-bold text-gray-900">Keranjang Belanja</h2>
                     <p className="text-sm text-gray-500 mt-1">{getTotalItems()} item dipilih</p>
-                    {isMobile && (
-                      <div className="mt-2 text-xs text-gray-600">
-                        <div>DEBUG: context items = {getTotalItems()}</div>
-                        <div>
-                          DEBUG: storage items = {
-                            (() => {
-                              try {
-                                const raw = typeof window !== 'undefined' ? localStorage.getItem('cartItems') : null;
-                                const parsed = raw ? JSON.parse(raw) : [];
-                                return Array.isArray(parsed) ? parsed.length : 0;
-                              } catch (e) {
-                                return 'err';
-                              }
-                            })()
-                          }
-                        </div>
-                      </div>
-                    )}
+                    {/* mobile: no debug text */}
                 </div>
                 <button
                   onClick={() => setIsOpen(false)}

@@ -108,6 +108,22 @@ export function CartProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  // Allow other components to request a resync of cart state from localStorage
+  useEffect(() => {
+    const handleCartSync = () => {
+      try {
+        const fresh = getInitialCart();
+        stocksRef.current = stocksRef.current || [];
+        setCart(fresh);
+      } catch (e) {
+        // ignore
+      }
+    };
+
+    window.addEventListener('cart-sync', handleCartSync as EventListener);
+    return () => window.removeEventListener('cart-sync', handleCartSync as EventListener);
+  }, []);
+
   useEffect(() => {
     if (typeof window === 'undefined') {
       return;
