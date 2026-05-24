@@ -478,7 +478,10 @@ export function Cart() {
                       Kosongkan
                     </button>
                     <button
-                      onClick={() => setIsCheckoutReviewOpen(true)}
+                      onClick={() => {
+                        setIsOpen(false);
+                        setIsCheckoutReviewOpen(true);
+                      }}
                       className="flex-1 bg-green-500 text-white min-h-11 px-3 py-2.5 rounded-xl font-semibold leading-normal hover:shadow-lg transition-all flex items-center justify-center gap-2 whitespace-nowrap"
                     >
                       <MessageCircle className="w-5 h-5" />
