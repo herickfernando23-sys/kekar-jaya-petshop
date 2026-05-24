@@ -479,6 +479,35 @@
     font-family: inherit;
   }
 
+  .public-site .cart-fab {
+    right: 50px;
+    top: 5px;
+    left: auto;
+    bottom: auto;
+    background-color: #f97316;
+  }
+
+  .public-site .cart-panel {
+    right: 14px;
+    top: 84px;
+    max-height: calc(100vh - 96px);
+  }
+
+  @media (max-width: 639px) {
+    .public-site .cart-fab {
+      right: auto;
+      top: auto;
+      left: 1rem;
+      bottom: 6rem;
+    }
+
+    .public-site .cart-panel {
+      top: 96px;
+      right: 14px;
+      max-height: calc(100vh - 96px);
+    }
+  }
+
   .pointer-events-none {
     pointer-events: none;
   }
