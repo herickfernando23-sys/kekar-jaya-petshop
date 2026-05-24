@@ -26,7 +26,13 @@ router.post('/upload-image', upload.single('image'), (req, res) => {
   }
   // Return the relative path to be saved in DB
   const relativePath = '/images/' + req.file.filename;
-  res.json({ imageUrl: relativePath });
+  const forwardedProto = req.headers['x-forwarded-proto'];
+  const protocol = typeof forwardedProto === 'string' && forwardedProto ? forwardedProto.split(',')[0].trim() : 'https';
+  const forwardedHost = req.headers['x-forwarded-host'];
+  const host = (typeof forwardedHost === 'string' && forwardedHost ? forwardedHost : req.get('host')) || '';
+  const publicBaseUrl = host ? `${protocol}://${String(host).replace(/\/+$/, '')}` : '';
+
+  res.json({ imageUrl: publicBaseUrl ? `${publicBaseUrl}${relativePath}` : relativePath });
 });
 
 module.exports = router;

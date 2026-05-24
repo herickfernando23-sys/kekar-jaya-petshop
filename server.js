@@ -21,6 +21,37 @@ const slugify = (value = '') => value
   .replace(/-+/g, '-')
   .replace(/^-|-$/g, '');
 
+const resolvePublicBaseUrl = (req) => {
+  const forwardedProto = req?.headers?.['x-forwarded-proto'];
+  const protocol = typeof forwardedProto === 'string' && forwardedProto ? forwardedProto.split(',')[0].trim() : 'https';
+  const forwardedHost = req?.headers?.['x-forwarded-host'];
+  const host = (typeof forwardedHost === 'string' && forwardedHost ? forwardedHost : req?.get?.('host')) || process.env.RAILWAY_PUBLIC_DOMAIN || '';
+
+  if (!host) {
+    return '';
+  }
+
+  if (/^https?:\/\//i.test(host)) {
+    return host.replace(/\/+$/, '');
+  }
+
+  return `${protocol}://${String(host).replace(/\/+$/, '')}`;
+};
+
+const resolveImageUrl = (imagePath, req) => {
+  if (!imagePath) return '/images/whiskas.jpg';
+  if (/^(https?:)?\/\//i.test(imagePath) || String(imagePath).startsWith('data:')) {
+    return imagePath;
+  }
+
+  const baseUrl = resolvePublicBaseUrl(req);
+  if (!baseUrl) {
+    return imagePath;
+  }
+
+  return `${baseUrl}${String(imagePath).startsWith('/') ? '' : '/'}${imagePath}`;
+};
+
 const buildMysqlConnectionConfig = () => {
   const databaseUrl = process.env.DATABASE_URL || process.env.MYSQL_URL || process.env.JAWSDB_URL || '';
 
@@ -231,7 +262,11 @@ app.get('/products', async (req, res) => {
 
     const productsWithVariants = products.map((product) => ({
       ...product,
-      variants: variantsByProduct[product.id] || [],
+      image_url: resolveImageUrl(product.image_url, req),
+      variants: (variantsByProduct[product.id] || []).map((variant) => ({
+        ...variant,
+        image_url: resolveImageUrl(variant.image_url, req),
+      })),
     }));
 
     connection.release();
@@ -241,7 +276,14 @@ app.get('/products', async (req, res) => {
     console.error('Error fetching products from database:', error);
     // Use fallback mock data when database is unavailable
     console.warn('⚠️  Database unavailable - returning fallback mock data');
-    res.json(FALLBACK_MOCK_DATA);
+    res.json(FALLBACK_MOCK_DATA.map((product) => ({
+      ...product,
+      image_url: resolveImageUrl(product.image_url, req),
+      variants: (product.variants || []).map((variant) => ({
+        ...variant,
+        image_url: resolveImageUrl(variant.image_url, req),
+      })),
+    })));
   }
 });
 
@@ -292,7 +334,11 @@ app.get('/products/:id', async (req, res) => {
 
     res.json({
       ...product,
-      variants,
+      image_url: resolveImageUrl(product.image_url, req),
+      variants: variants.map((variant) => ({
+        ...variant,
+        image_url: resolveImageUrl(variant.image_url, req),
+      })),
     });
   } catch (error) {
     console.error('Error fetching product from database:', error);
@@ -302,7 +348,14 @@ app.get('/products/:id', async (req, res) => {
     
     if (fallbackProduct) {
       console.warn('⚠️  Database unavailable - returning fallback product');
-      return res.json(fallbackProduct);
+      return res.json({
+        ...fallbackProduct,
+        image_url: resolveImageUrl(fallbackProduct.image_url, req),
+        variants: (fallbackProduct.variants || []).map((variant) => ({
+          ...variant,
+          image_url: resolveImageUrl(variant.image_url, req),
+        })),
+      });
     }
     
     res.status(500).json({ error: 'Gagal mengambil data produk' });
@@ -371,6 +424,7 @@ app.post('/products', async (req, res) => {
 
     return res.status(201).json({
       ...createdRows[0],
+      image_url: resolveImageUrl(createdRows[0]?.image_url, req),
       variants: [],
     });
   } catch (error) {
@@ -494,6 +548,7 @@ app.put('/products/:id', async (req, res) => {
 
     return res.json({
       ...updatedRows[0],
+      image_url: resolveImageUrl(updatedRows[0]?.image_url, req),
       variants: updatedVariants,
     });
   } catch (error) {
@@ -661,6 +716,7 @@ app.post('/products/:id/restore', async (req, res) => {
       message: 'Produk berhasil dipulihkan',
       product: {
         ...rows[0],
+        image_url: resolveImageUrl(rows[0]?.image_url, req),
         variants: [],
       },
     });
