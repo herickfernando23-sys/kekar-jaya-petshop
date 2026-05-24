@@ -379,6 +379,25 @@ const AdminDashboard = () => {
         throw new Error(responseBody?.error || 'Gagal mengonfirmasi pembayaran.');
       }
 
+      // Remove any stale cached order that used the same token or id so the
+      // admin UI doesn't continue showing a local/pending copy after the
+      // server has confirmed and cleared the token.
+      try {
+        const cached = readCachedOrders();
+        const pruned = cached.filter((o) => {
+          // remove if notes/token matched
+          if (order.notes && o.notes && String(o.notes) === String(order.notes)) return false;
+          // remove if server-assigned id matched
+          const existingId = getValidOrderId(o);
+          if (existingId && existingId === orderId) return false;
+          return true;
+        });
+        writeCachedOrders(pruned);
+        setOrders(pruned);
+      } catch (e) {
+        // ignore cache remove failures
+      }
+
       // Fire event immediately so cart is cleared for the user without waiting
       // for product/order sync to complete.
       window.dispatchEvent(new Event('checkout-payment-confirmed'));
