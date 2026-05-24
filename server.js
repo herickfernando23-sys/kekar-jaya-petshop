@@ -927,7 +927,7 @@ app.post('/orders/:id/confirm', async (req, res) => {
       connection.release();
     }
     console.error('Error confirm order:', error);
-    res.status(500).json({ error: 'Gagal konfirmasi order' });
+    res.status(500).json({ error: error?.message || 'Gagal konfirmasi order', code: error?.code || null });
   }
 });
 
@@ -983,7 +983,7 @@ app.delete('/orders/:id', async (req, res) => {
       connection.release();
     }
     console.error('Error deleting order:', error);
-    return res.status(500).json({ error: 'Gagal menghapus order' });
+    return res.status(500).json({ error: error?.message || 'Gagal menghapus order', code: error?.code || null });
   }
 });
 
