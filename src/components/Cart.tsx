@@ -359,12 +359,12 @@ export function Cart() {
                  margin: 0,
                  maxHeight: 'calc(100dvh - 48px)',
                  borderRadius: '1.25rem',
-                 zIndex: 10001,
+                 zIndex: 20001,
                  borderColor: '#fed7aa',
                  backgroundColor: '#ffffff'
                } : {
                  width: 'min(420px, calc(100vw - 28px))',
-                 zIndex: 10001,
+                 zIndex: 20001,
                  borderColor: '#fed7aa'
                }}
             >
