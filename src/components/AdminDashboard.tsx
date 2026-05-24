@@ -199,7 +199,7 @@ const AdminDashboard = () => {
     try {
       const response = await fetch(`${apiBaseUrl}/orders?t=${Date.now()}`);
       if (!response.ok) {
-        throw new Error('Gagal mengambil data order dari server.');
+        throw new Error('');
       }
 
       const data = await response.json();
@@ -243,10 +243,10 @@ const AdminDashboard = () => {
       const cachedOrders = readCachedOrders();
       if (cachedOrders.length > 0) {
         setOrders(cachedOrders);
-        setOrdersError('Backend order sedang tidak terjangkau, memakai data cached terakhir.');
+        setOrdersError('Backend order sedang tidak terjangkau, memakai data tersimpan terakhir.');
       } else {
         setOrders([]);
-        setOrdersError(error?.message || 'Backend order belum tersedia.');
+        setOrdersError('Belum ada data order tersimpan untuk ditampilkan.');
       }
     } finally {
       setOrdersLoading(false);
@@ -540,9 +540,8 @@ const AdminDashboard = () => {
         }
       }
     } catch (error: any) {
-      if (serverMissing) {
-        // continue with local cleanup
-      } else {
+      const isServerUnavailable = error instanceof TypeError || /fetch/i.test(error?.message || '');
+      if (!serverMissing && !isServerUnavailable) {
         window.alert(error?.message || 'Gagal menghapus kategori di server.');
         return;
       }
@@ -639,7 +638,11 @@ const AdminDashboard = () => {
         variants: [],
       };
 
-      const updatedProducts = [addedProduct, ...products.filter((product) => product.id !== addedProduct.id)];
+      const currentStoredProducts = getStoredProducts();
+      const updatedProducts = [
+        addedProduct,
+        ...currentStoredProducts.filter((product) => product.id !== addedProduct.id),
+      ];
 
       setProducts(updatedProducts);
       localStorage.setItem(PRODUCT_STORAGE_KEY, JSON.stringify(updatedProducts));
@@ -673,7 +676,11 @@ const AdminDashboard = () => {
         variants: [],
       };
 
-      const updatedProducts = [fallbackProduct, ...products.filter((product) => product.id !== fallbackProduct.id)];
+      const currentStoredProducts = getStoredProducts();
+      const updatedProducts = [
+        fallbackProduct,
+        ...currentStoredProducts.filter((product) => product.id !== fallbackProduct.id),
+      ];
       setProducts(updatedProducts);
       localStorage.setItem(PRODUCT_STORAGE_KEY, JSON.stringify(updatedProducts));
       window.dispatchEvent(new Event('products-updated'));
