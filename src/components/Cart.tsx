@@ -342,25 +342,17 @@ export function Cart() {
       </AnimatePresence>
 
       {/* Cart Modal */}
-      <AnimatePresence>
-        {isOpen && (
+      {isOpen && (
           <>
             {/* Backdrop */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
+            <div
               className="cart-backdrop fixed inset-0"
-                style={{ backgroundColor: 'rgba(15, 23, 42, 0.42)', zIndex: 10000 }}
+              style={{ backgroundColor: 'rgba(15, 23, 42, 0.42)', zIndex: 10000 }}
               onClick={() => setIsOpen(false)}
             />
 
             {/* Cart Panel */}
-            <motion.div
-              initial={isMobile ? { opacity: 0, y: 28 } : { opacity: 0, x: -18, y: 18 }}
-              animate={isMobile ? { opacity: 1, y: 0 } : { opacity: 1, x: 0, y: 0 }}
-              exit={isMobile ? { opacity: 0, y: 28 } : { opacity: 0, x: -18, y: 18 }}
-              transition={{ duration: 0.25, ease: 'easeOut' }}
+            <div
               className="cart-panel fixed bg-white/95 backdrop-blur rounded-2xl shadow-2xl border overflow-hidden flex flex-col"
                style={isMobile ? {
                  left: '12px',
@@ -493,10 +485,9 @@ export function Cart() {
                   </div>
                 </div>
               )}
-            </motion.div>
+            </div>
           </>
         )}
-      </AnimatePresence>
 
       <AnimatePresence>
         {isCheckoutReviewOpen && cart.length > 0 && (
