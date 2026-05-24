@@ -317,13 +317,15 @@ export function Cart() {
               transition={{ duration: 0.25, ease: 'easeOut' }}
               className="cart-panel fixed bg-white/95 backdrop-blur rounded-2xl shadow-2xl border overflow-hidden flex flex-col"
                style={isMobile ? {
-                 left: 0,
-                 right: 0,
-                 bottom: 0,
-                 width: '100%',
+                 left: '50%',
+                 right: 'auto',
+                 top: '50%',
+                 bottom: 'auto',
+                 transform: 'translate(-50%, -50%)',
+                 width: 'min(92%, 420px)',
                  margin: 0,
-                 maxHeight: '70vh',
-                 borderRadius: '1rem 1rem 0 0',
+                 maxHeight: 'calc(100vh - 48px)',
+                 borderRadius: '1.25rem',
                  zIndex: 10001,
                  borderColor: '#fed7aa',
                  backgroundColor: '#ffffff'
