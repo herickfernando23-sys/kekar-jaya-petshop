@@ -687,6 +687,68 @@ app.post('/orders', async (req, res) => {
     // Generate order_number unik
     const orderNumber = `ORD-${Date.now()}-${Math.floor(Math.random()*10000)}`;
 
+    const ensureOrderProductExists = async (item) => {
+      const productId = Number(item.product_id);
+      if (!Number.isInteger(productId) || productId <= 0) {
+        throw new Error('ID produk tidak valid');
+      }
+
+      const [productRows] = await connection.query('SELECT id FROM products WHERE id = ? LIMIT 1', [productId]);
+      if (productRows.length === 0) {
+        const cleanName = typeof item.name === 'string' && item.name.trim() ? item.name.trim() : `Produk ${productId}`;
+        const productSlug = `${slugify(cleanName) || 'produk'}-${productId}`.slice(0, 220);
+        const description = typeof item.description === 'string' && item.description.trim()
+          ? item.description.trim()
+          : 'Produk dari pesanan customer';
+        const basePrice = Math.max(0, Number(item.price) || 0);
+
+        await connection.query(
+          `INSERT INTO products (id, category_id, name, slug, description, base_price, stock, image_url, is_active)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
+           ON DUPLICATE KEY UPDATE
+             name = VALUES(name),
+             description = VALUES(description),
+             base_price = VALUES(base_price),
+             image_url = VALUES(image_url),
+             is_active = 1`,
+          [productId, 1, cleanName, productSlug, description, basePrice, 0, '/images/whiskas.jpg']
+        );
+      }
+
+      return productId;
+    };
+
+    const ensureOrderVariantExists = async (item, productId) => {
+      const variantId = item.variant_id === null || item.variant_id === undefined
+        ? null
+        : Number(item.variant_id);
+
+      if (!Number.isInteger(variantId) || variantId <= 0) {
+        return null;
+      }
+
+      const [variantRows] = await connection.query('SELECT id FROM product_variants WHERE id = ? LIMIT 1', [variantId]);
+      if (variantRows.length === 0) {
+        const variantName = typeof item.variant === 'string' && item.variant.trim()
+          ? item.variant.trim()
+          : 'Varian order';
+        const variantPrice = Math.max(0, Number(item.price) || 0);
+
+        await connection.query(
+          `INSERT INTO product_variants (id, product_id, name, price, stock, image_url)
+           VALUES (?, ?, ?, ?, ?, ?)
+           ON DUPLICATE KEY UPDATE
+             product_id = VALUES(product_id),
+             name = VALUES(name),
+             price = VALUES(price),
+             image_url = VALUES(image_url)`,
+          [variantId, productId, variantName, variantPrice, 0, '/images/whiskas.jpg']
+        );
+      }
+
+      return variantId;
+    };
+
     // Insert order
     const [orderResult] = await connection.query(
       'INSERT INTO orders (order_number, customer_id, status, total_amount, notes) VALUES (?, ?, ?, ?, ?)',
@@ -696,14 +758,16 @@ app.post('/orders', async (req, res) => {
 
     // Insert order_items
     for (const item of items) {
+      const ensuredProductId = await ensureOrderProductExists(item);
+      const ensuredVariantId = await ensureOrderVariantExists(item, ensuredProductId);
       await connection.query(
         `INSERT INTO order_items 
           (order_id, product_id, variant_id, product_name_snapshot, variant_name_snapshot, price_snapshot, quantity, subtotal)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           orderId,
-          item.product_id,
-          item.variant_id || null,
+          ensuredProductId,
+          ensuredVariantId,
           item.name,
           item.variant || null,
           item.price,

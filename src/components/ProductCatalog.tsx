@@ -86,6 +86,14 @@ export function ProductCatalog() {
     .replace(/\/+$/, '');
   const itemsPerPage = 9;
 
+  const resolveImageUrl = (imagePath?: string) => {
+    if (!imagePath) return `${apiBaseUrl}/images/whiskas.jpg`;
+    if (/^(https?:)?\/\//i.test(imagePath) || imagePath.startsWith('data:')) {
+      return imagePath;
+    }
+    return `${apiBaseUrl}${imagePath.startsWith('/') ? '' : '/'}${imagePath}`;
+  };
+
   const formatPrice = (value: number) => `Rp ${value.toLocaleString('id-ID')}`;
 
   const isValidStoredProduct = (item: any): boolean => (
@@ -114,13 +122,13 @@ export function ProductCatalog() {
       description: item.description,
       price: formatPrice(item.base_price),
       stock: item.stock || 0,
-      image: item.image_url,
+      image: resolveImageUrl(item.image_url),
       variants: item.variants?.map((variant: any) => ({
         id: variant.id,
         name: variant.name,
         price: formatPrice(variant.price),
         stock: variant.stock,
-        image: variant.image_url,
+        image: resolveImageUrl(variant.image_url),
       })),
     }));
 
@@ -134,12 +142,12 @@ export function ProductCatalog() {
       description: item.description,
       price: formatPrice(Number(item.price) || 0),
       stock: Number(item.stock) || 0,
-      image: item.image,
+      image: resolveImageUrl(item.image),
       variants: item.variants?.map((variant: any) => ({
         name: variant.name,
         price: formatPrice(Number(variant.price) || 0),
         stock: Number(variant.stock) || 0,
-        image: variant.image,
+        image: resolveImageUrl(variant.image),
       })),
     }));
 

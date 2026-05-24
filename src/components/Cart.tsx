@@ -69,6 +69,48 @@ export function Cart() {
       .join('|')
   );
 
+  const writeCachedAdminOrder = (orderId: number, checkoutToken: string) => {
+    try {
+      const existingOrdersRaw = localStorage.getItem('adminOrdersCache');
+      const existingOrders = existingOrdersRaw ? JSON.parse(existingOrdersRaw) : [];
+      const safeExistingOrders = Array.isArray(existingOrders) ? existingOrders.filter((order) => Number.isInteger(order?.id) && order.id > 0) : [];
+      const nowIso = new Date().toISOString();
+      const cachedOrder = {
+        id: orderId,
+        order_number: `ORD-${orderId}`,
+        customer_id: 0,
+        status: 'pending',
+        total_amount: cart.reduce((sum, item) => sum + parsePrice(item.price) * item.quantity, 0),
+        notes: checkoutToken,
+        created_at: nowIso,
+        updated_at: nowIso,
+        customer_name: 'Pelanggan',
+        customer_phone: '-',
+        customer_email: null,
+        customer_address: null,
+        items: cart.map((item) => ({
+          id: 0,
+          order_id: orderId,
+          product_id: item.id,
+          variant_id: item.variantId ?? null,
+          product_name_snapshot: item.name,
+          variant_name_snapshot: item.variant ?? null,
+          price_snapshot: parsePrice(item.price),
+          quantity: item.quantity,
+          subtotal: parsePrice(item.price) * item.quantity,
+          created_at: nowIso,
+          updated_at: nowIso,
+        })),
+      };
+
+      const mergedOrders = [cachedOrder, ...safeExistingOrders.filter((order) => order.id !== orderId)];
+      localStorage.setItem('adminOrdersCache', JSON.stringify(mergedOrders));
+      window.dispatchEvent(new Event('orders-updated'));
+    } catch {
+      // ignore storage failures
+    }
+  };
+
   const showCheckoutNotification = (message: string, duration = 3500) => {
     if (notificationTimeoutRef.current !== null) {
       window.clearTimeout(notificationTimeoutRef.current);
@@ -160,6 +202,8 @@ export function Cart() {
           localStorage.setItem('lastOrderId', String(data.orderId));
           localStorage.setItem(LAST_CHECKOUT_SENT_AT_KEY, String(Date.now()));
           localStorage.setItem(LAST_CHECKOUT_FINGERPRINT_KEY, checkoutFingerprint);
+          writeCachedAdminOrder(Number(data.orderId), checkoutToken);
+          window.dispatchEvent(new Event('orders-updated'));
         }
       })
       .catch((error: any) => {

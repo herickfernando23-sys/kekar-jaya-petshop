@@ -95,6 +95,13 @@ const AdminDashboard = () => {
   const navigate = useNavigate();
   const apiBaseUrl = (((import.meta as any).env?.VITE_API_BASE_URL as string) || 'http://localhost:5000')
     .replace(/\/+$/, '');
+  const resolveImageUrl = (imagePath?: string) => {
+    if (!imagePath) return '/images/whiskas.jpg';
+    if (/^(https?:)?\/\//i.test(imagePath) || imagePath.startsWith('data:')) {
+      return imagePath;
+    }
+    return `${apiBaseUrl}${imagePath.startsWith('/') ? '' : '/'}${imagePath}`;
+  };
 
   const formatCurrency = (value: number) => `Rp ${value.toLocaleString('id-ID')}`;
 
@@ -120,13 +127,13 @@ const AdminDashboard = () => {
     price: Number(item.base_price) || 0,
     stock: Number(item.stock) || 0,
     description: item.description || '',
-    image: item.image_url || '/images/whiskas.jpg',
+    image: resolveImageUrl(item.image_url),
     variants: Array.isArray(item.variants)
       ? item.variants.map((variant: any) => ({
           name: variant.name,
           price: Number(variant.price) || 0,
           stock: Number(variant.stock) || 0,
-          image: variant.image_url || variant.image,
+          image: resolveImageUrl(variant.image_url || variant.image),
         }))
       : [],
   });
@@ -139,10 +146,20 @@ const AdminDashboard = () => {
       const parsed = JSON.parse(raw);
       if (!Array.isArray(parsed)) return [];
 
-      return parsed.filter((order) => Number.isInteger(order?.id) && Number(order.id) > 0);
+      const sanitized = parsed.filter((order) => Number.isInteger(order?.id) && Number(order.id) > 0);
+      if (sanitized.length !== parsed.length) {
+        localStorage.setItem(ADMIN_ORDERS_CACHE_KEY, JSON.stringify(sanitized));
+      }
+
+      return sanitized;
     } catch {
       return [];
     }
+  };
+
+  const getValidOrderId = (order: AdminOrder) => {
+    const orderId = Number(order?.id);
+    return Number.isInteger(orderId) && orderId > 0 ? orderId : null;
   };
 
   const writeCachedOrders = (nextOrders: AdminOrder[]) => {
@@ -239,8 +256,13 @@ const AdminDashboard = () => {
           : [],
       }));
 
-      setOrders(mappedOrders);
-      writeCachedOrders(mappedOrders);
+      const cachedOrders = readCachedOrders();
+      const mergedOrders = Array.from(
+        new Map([...mappedOrders, ...cachedOrders].map((order) => [order.id, order])).values()
+      );
+
+      setOrders(mergedOrders);
+      writeCachedOrders(mergedOrders);
     } catch (error: any) {
       const cachedOrders = readCachedOrders();
       if (cachedOrders.length > 0) {
@@ -261,6 +283,13 @@ const AdminDashboard = () => {
   );
 
   const handleConfirmPayment = async (order: AdminOrder) => {
+    const orderId = getValidOrderId(order);
+    if (!orderId) {
+      window.alert('ID order tidak valid. Muat ulang order lalu coba lagi.');
+      await syncOrdersFromServer();
+      return;
+    }
+
     if (!order.notes) {
       window.alert('Token konfirmasi untuk order ini tidak tersedia.');
       return;
@@ -274,11 +303,11 @@ const AdminDashboard = () => {
       return;
     }
 
-    setConfirmingOrderId(order.id);
+    setConfirmingOrderId(orderId);
 
     try {
       const response = await fetch(
-        `${apiBaseUrl}/orders/${order.id}/confirm?token=${encodeURIComponent(order.notes)}`,
+        `${apiBaseUrl}/orders/${orderId}/confirm?token=${encodeURIComponent(order.notes)}`,
         { method: 'POST' }
       );
 
@@ -316,6 +345,13 @@ const AdminDashboard = () => {
   };
 
   const handleDeletePendingOrder = async (order: AdminOrder) => {
+    const orderId = getValidOrderId(order);
+    if (!orderId) {
+      window.alert('ID order tidak valid. Muat ulang order lalu coba lagi.');
+      await syncOrdersFromServer();
+      return;
+    }
+
     if (!order.notes) {
       window.alert('Token hapus untuk order ini tidak tersedia.');
       return;
@@ -329,11 +365,11 @@ const AdminDashboard = () => {
       return;
     }
 
-    setDeletingOrderId(order.id);
+    setDeletingOrderId(orderId);
 
     try {
       const response = await fetch(
-        `${apiBaseUrl}/orders/${order.id}?token=${encodeURIComponent(order.notes)}`,
+        `${apiBaseUrl}/orders/${orderId}?token=${encodeURIComponent(order.notes)}`,
         { method: 'DELETE' }
       );
 
@@ -385,10 +421,12 @@ const AdminDashboard = () => {
     }
 
     window.addEventListener('products-updated', handleProductsUpdated);
+    window.addEventListener('orders-updated', syncOrdersFromServer);
     window.addEventListener('storage', handleProductsUpdated);
 
     return () => {
       window.removeEventListener('products-updated', handleProductsUpdated);
+      window.removeEventListener('orders-updated', syncOrdersFromServer);
       window.removeEventListener('storage', handleProductsUpdated);
     };
   }, []);
@@ -638,7 +676,7 @@ const AdminDashboard = () => {
         price: Number(created.base_price) || payload.price,
         stock: Number(created.stock) || payload.stock,
         description: created.description || payload.description,
-        image: created.image_url || payload.image,
+        image: resolveImageUrl(created.image_url || payload.image),
         variants: [],
       };
 
@@ -676,7 +714,7 @@ const AdminDashboard = () => {
         price: payload.price,
         stock: payload.stock,
         description: payload.description,
-        image: payload.image,
+        image: resolveImageUrl(payload.image),
         variants: [],
       };
 
@@ -892,13 +930,13 @@ const AdminDashboard = () => {
         price: Number(updated.base_price) || payload.price,
         stock: Number(updated.stock) || payload.stock,
         description: updated.description || payload.description,
-        image: updated.image_url || payload.image,
+        image: resolveImageUrl(updated.image_url || payload.image),
         variants: Array.isArray(updated.variants)
           ? updated.variants.map((variant: any) => ({
               name: variant.name,
               price: Number(variant.price) || 0,
               stock: Number(variant.stock) || 0,
-              image: variant.image_url || variant.image,
+              image: resolveImageUrl(variant.image_url || variant.image),
             }))
           : normalizedVariants,
       };
