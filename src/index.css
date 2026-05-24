@@ -530,6 +530,12 @@
       margin-top: 1.5rem !important;
     }
 
+    .public-site .mobile-debug-cart {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
     /* Debug helpers: visible only on small screens to diagnose overlay/panel placement */
     .public-site .debug-cart-panel {
       outline: 3px solid rgba(16, 185, 129, 0.9);

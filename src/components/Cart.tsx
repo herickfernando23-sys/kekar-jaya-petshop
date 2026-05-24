@@ -8,6 +8,15 @@ export function Cart() {
   const [isOpen, setIsOpen] = React.useState(false);
   const [isCheckoutReviewOpen, setIsCheckoutReviewOpen] = React.useState(false);
   const [isSubmittingCheckout, setIsSubmittingCheckout] = React.useState(false);
+  const [showMobileDebug, setShowMobileDebug] = React.useState(false);
+
+  React.useEffect(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        setShowMobileDebug(window.innerWidth <= 640);
+      }
+    } catch {}
+  }, []);
   const [notification, setNotification] = React.useState<string | null>(null);
   const notificationTimeoutRef = React.useRef<number | null>(null);
   const checkoutRequestLockRef = React.useRef(false);
