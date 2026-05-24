@@ -701,6 +701,7 @@ app.post('/orders', async (req, res) => {
           ? item.description.trim()
           : 'Produk dari pesanan customer';
         const basePrice = Math.max(0, Number(item.price) || 0);
+        const categoryId = await ensureCategoryId(connection, 'Makanan Kucing');
 
         await connection.query(
           `INSERT INTO products (id, category_id, name, slug, description, base_price, stock, image_url, is_active)
@@ -711,7 +712,7 @@ app.post('/orders', async (req, res) => {
              base_price = VALUES(base_price),
              image_url = VALUES(image_url),
              is_active = 1`,
-          [productId, 1, cleanName, productSlug, description, basePrice, 0, '/images/whiskas.jpg']
+          [productId, categoryId, cleanName, productSlug, description, basePrice, 0, '/images/whiskas.jpg']
         );
       }
 

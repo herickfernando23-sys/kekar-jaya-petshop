@@ -50,6 +50,7 @@ type AdminOrder = {
   customer_email: string | null;
   customer_address: string | null;
   items: OrderItem[];
+  localOnly?: boolean;
 };
 
 const ADMIN_CUSTOM_CATEGORIES_KEY = 'adminCustomCategories';
@@ -151,7 +152,10 @@ const AdminDashboard = () => {
         localStorage.setItem(ADMIN_ORDERS_CACHE_KEY, JSON.stringify(sanitized));
       }
 
-      return sanitized;
+      return sanitized.map((order) => ({
+        ...order,
+        localOnly: Boolean(order?.localOnly) || String(order?.order_number || '').startsWith('LOCAL-'),
+      }));
     } catch {
       return [];
     }
@@ -170,9 +174,58 @@ const AdminDashboard = () => {
     }
   };
 
+  const orderMergeKey = (order: AdminOrder) => order.notes?.trim() || String(order.id);
+
+  const isLocalOrder = (order: AdminOrder) => (
+    Boolean(order.localOnly) || String(order.order_number || '').startsWith('LOCAL-')
+  );
+
+  const createServerOrderFromLocal = async (order: AdminOrder) => {
+    const checkoutToken = order.notes || `local-${order.id}`;
+    const customerPhone = `local-${checkoutToken.replace(/[^a-zA-Z0-9]/g, '').slice(0, 24)}`;
+    const response = await fetch(`${apiBaseUrl}/orders`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        checkoutToken,
+        customer: {
+          name: 'Pelanggan Local',
+          phone: customerPhone,
+          email: null,
+          address: null,
+        },
+        items: order.items.map((item) => ({
+          product_id: item.product_id,
+          variant_id: item.variant_id,
+          quantity: item.quantity,
+          price: item.price_snapshot,
+          name: item.product_name_snapshot,
+          variant: item.variant_name_snapshot,
+        })),
+      }),
+    });
+
+    let responseBody: any = null;
+    try {
+      responseBody = await response.json();
+    } catch {
+      responseBody = null;
+    }
+
+    if (!response.ok) {
+      throw new Error(responseBody?.error || 'Gagal menyinkronkan order lokal ke server.');
+    }
+
+    if (!responseBody?.orderId) {
+      throw new Error('Respons server order tidak valid.');
+    }
+
+    return Number(responseBody.orderId);
+  };
+
   const syncProductsFromServer = async () => {
     try {
-      const response = await fetch(`${apiBaseUrl}/products?t=${Date.now()}`);
+          new Map([...mappedOrders, ...cachedOrders].map((order) => [orderMergeKey(order), order])).values()
       if (!response.ok) {
         return;
       }
@@ -258,7 +311,7 @@ const AdminDashboard = () => {
 
       const cachedOrders = readCachedOrders();
       const mergedOrders = Array.from(
-        new Map([...mappedOrders, ...cachedOrders].map((order) => [order.id, order])).values()
+        new Map([...cachedOrders, ...mappedOrders].map((order) => [orderMergeKey(order), order])).values()
       );
 
       setOrders(mergedOrders);
@@ -283,16 +336,20 @@ const AdminDashboard = () => {
   );
 
   const handleConfirmPayment = async (order: AdminOrder) => {
-    const orderId = getValidOrderId(order);
-    if (!orderId) {
-      window.alert('ID order tidak valid. Muat ulang order lalu coba lagi.');
-      await syncOrdersFromServer();
-      return;
-    }
-
     if (!order.notes) {
       window.alert('Token konfirmasi untuk order ini tidak tersedia.');
       return;
+    }
+
+    let orderId = getValidOrderId(order);
+    if (!orderId || isLocalOrder(order)) {
+      try {
+        orderId = await createServerOrderFromLocal(order);
+        await syncOrdersFromServer();
+      } catch (error: any) {
+        window.alert(error?.message || 'Gagal menyinkronkan order lokal ke server.');
+        return;
+      }
     }
 
     const confirmed = window.confirm(
@@ -345,15 +402,31 @@ const AdminDashboard = () => {
   };
 
   const handleDeletePendingOrder = async (order: AdminOrder) => {
+    if (!order.notes) {
+      window.alert('Token hapus untuk order ini tidak tersedia.');
+      return;
+    }
+
+    if (isLocalOrder(order)) {
+      const confirmedLocalDelete = window.confirm(
+        `Order lokal ${order.order_number} belum tersimpan di server. Hapus dari browser saja?`
+      );
+
+      if (!confirmedLocalDelete) {
+        return;
+      }
+
+      const updatedOrders = orders.filter((item) => item.notes !== order.notes);
+      setOrders(updatedOrders);
+      writeCachedOrders(updatedOrders);
+      window.alert('Order lokal berhasil dihapus dari browser.');
+      return;
+    }
+
     const orderId = getValidOrderId(order);
     if (!orderId) {
       window.alert('ID order tidak valid. Muat ulang order lalu coba lagi.');
       await syncOrdersFromServer();
-      return;
-    }
-
-    if (!order.notes) {
-      window.alert('Token hapus untuk order ini tidak tersedia.');
       return;
     }
 

@@ -69,7 +69,7 @@ export function Cart() {
       .join('|')
   );
 
-  const writeCachedAdminOrder = (orderId: number, checkoutToken: string) => {
+  const writeCachedAdminOrder = (orderId: number, checkoutToken: string, localOnly = false) => {
     try {
       const existingOrdersRaw = localStorage.getItem('adminOrdersCache');
       const existingOrders = existingOrdersRaw ? JSON.parse(existingOrdersRaw) : [];
@@ -77,7 +77,7 @@ export function Cart() {
       const nowIso = new Date().toISOString();
       const cachedOrder = {
         id: orderId,
-        order_number: `ORD-${orderId}`,
+        order_number: localOnly ? `LOCAL-${orderId}` : `ORD-${orderId}`,
         customer_id: 0,
         status: 'pending',
         total_amount: cart.reduce((sum, item) => sum + parsePrice(item.price) * item.quantity, 0),
@@ -88,6 +88,7 @@ export function Cart() {
         customer_phone: '-',
         customer_email: null,
         customer_address: null,
+        localOnly,
         items: cart.map((item) => ({
           id: 0,
           order_id: orderId,
@@ -202,15 +203,17 @@ export function Cart() {
           localStorage.setItem('lastOrderId', String(data.orderId));
           localStorage.setItem(LAST_CHECKOUT_SENT_AT_KEY, String(Date.now()));
           localStorage.setItem(LAST_CHECKOUT_FINGERPRINT_KEY, checkoutFingerprint);
-          writeCachedAdminOrder(Number(data.orderId), checkoutToken);
+          writeCachedAdminOrder(Number(data.orderId), checkoutToken, false);
           window.dispatchEvent(new Event('orders-updated'));
         }
       })
       .catch((error: any) => {
+        writeCachedAdminOrder(Date.now(), checkoutToken, true);
+        window.dispatchEvent(new Event('orders-updated'));
         showCheckoutNotification(
           error?.message === 'Duplicate checkout detected'
             ? 'Pesanan yang sama baru saja dibuat. Tunggu sebentar sebelum kirim ulang.'
-            : 'Pesanan WA terkirim, tetapi penyimpanan order ke server gagal.',
+            : 'Pesanan WA terkirim, order disimpan sementara di browser.',
           4200
         );
       })
