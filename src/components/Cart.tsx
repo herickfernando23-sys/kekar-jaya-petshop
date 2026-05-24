@@ -344,7 +344,7 @@ export function Cart() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               className="cart-backdrop fixed inset-0"
-                style={{ backgroundColor: 'rgba(15, 23, 42, 0.52)', zIndex: 20000 }}
+                style={{ backgroundColor: 'rgba(255, 0, 0, 0.12)', zIndex: 20000 }}
               onClick={() => setIsOpen(false)}
             />
 
@@ -356,21 +356,22 @@ export function Cart() {
               transition={{ duration: 0.25, ease: 'easeOut' }}
               className="cart-panel fixed bg-white/95 backdrop-blur rounded-2xl shadow-2xl border overflow-hidden flex flex-col"
                style={isMobile ? {
-                 left: '50%',
-                 right: 'auto',
-                 top: '50%',
-                 bottom: 'auto',
-                 transform: 'translate(-50%, -50%)',
-                 width: 'min(92%, 420px)',
+                 left: 0,
+                 right: 0,
+                 top: 0,
+                 bottom: 0,
+                 transform: 'none',
+                 width: '100%',
+                 height: '100%',
                  margin: 0,
-                 maxHeight: 'calc(100dvh - 48px)',
-                 borderRadius: '1.25rem',
+                 maxHeight: 'none',
+                 borderRadius: '0px',
                  zIndex: 30002,
                  borderColor: '#fed7aa',
                  backgroundColor: '#ffffff'
                } : {
                  width: 'min(420px, calc(100vw - 28px))',
-                 zIndex: 20001,
+                 zIndex: 30002,
                  borderColor: '#fed7aa'
                }}
             >
