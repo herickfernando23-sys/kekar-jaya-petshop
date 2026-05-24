@@ -169,6 +169,7 @@ export function ProductCatalog() {
         }
 
         const mapped = mapApiProducts(data);
+        const defaultCatalogProducts = mapStoredProductsToCatalog(localProducts as any[]);
         let nextProducts = mapped;
         // Save with numeric schema expected by getStoredProducts/CartContext.
         if (typeof window !== 'undefined') {
@@ -188,12 +189,30 @@ export function ProductCatalog() {
             })),
           }));
 
-          // Keep extra local products added from admin (not yet in API) so they don't disappear.
+          // Keep local fallback products and extra admin products so the catalog stays complete.
           const apiIds = new Set<number>(productsForStorage.map((item: any) => item.id));
-          const defaultLocalIds = new Set<number>(localProducts.map((item) => item.id));
           const deletedIds = new Set<number>(
             JSON.parse(localStorage.getItem(DELETED_PRODUCT_IDS_KEY) || '[]') as number[]
           );
+          const missingDefaultLocalProducts = localProducts.filter(
+            (item) => !apiIds.has(item.id) && !deletedIds.has(item.id)
+          );
+          const missingDefaultStorageProducts = missingDefaultLocalProducts.map((item) => ({
+            id: item.id,
+            name: item.name,
+            price: item.price,
+            stock: item.stock,
+            category: item.category,
+            description: item.description,
+            image: item.image,
+            variants: item.variants?.map((variant) => ({
+              name: variant.name,
+              price: variant.price,
+              stock: variant.stock,
+              image: variant.image,
+            })),
+          }));
+
           let extraLocalProducts: any[] = [];
           try {
             const rawStored = JSON.parse(localStorage.getItem(PRODUCT_STORAGE_KEY) || '[]');
@@ -209,12 +228,19 @@ export function ProductCatalog() {
             extraLocalProducts = [];
           }
 
-          const mergedStorageProducts = [...productsForStorage, ...extraLocalProducts];
+          const mergedStorageProducts = [...productsForStorage, ...missingDefaultStorageProducts, ...extraLocalProducts];
           localStorage.setItem(PRODUCT_STORAGE_KEY, JSON.stringify(mergedStorageProducts));
 
-          // Show API products + extra local admin products in the website catalog.
+          // Show API products + local fallback products + extra admin products in the website catalog.
+          const missingDefaultCatalogProducts = defaultCatalogProducts.filter(
+            (item) => !apiIds.has(item.id) && !deletedIds.has(item.id)
+          );
           const extraCatalogProducts = mapStoredProductsToCatalog(extraLocalProducts);
-          nextProducts = [...mapped, ...extraCatalogProducts];
+          nextProducts = Array.from(
+            new Map(
+              [...mapped, ...missingDefaultCatalogProducts, ...extraCatalogProducts].map((item) => [item.id, item])
+            ).values()
+          );
         }
         setProducts(nextProducts);
         setProductSource('api');
