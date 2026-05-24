@@ -91,6 +91,7 @@ const AdminDashboard = () => {
   const [deletingOrderId, setDeletingOrderId] = useState<number | null>(null);
   const [undoDeletedProduct, setUndoDeletedProduct] = useState<{ product: Product; index: number } | null>(null);
   const [editPanelOffsetTop, setEditPanelOffsetTop] = useState(0);
+  const editingDataRef = useRef<EditingData | null>(null);
   const undoTimerRef = useRef<number | null>(null);
   const productsSectionRef = useRef<HTMLDivElement | null>(null);
   const navigate = useNavigate();
@@ -103,6 +104,10 @@ const AdminDashboard = () => {
     }
     return `${apiBaseUrl}${imagePath.startsWith('/') ? '' : '/'}${imagePath}`;
   };
+
+  useEffect(() => {
+    editingDataRef.current = editingData;
+  }, [editingData]);
 
   const formatCurrency = (value: number) => `Rp ${value.toLocaleString('id-ID')}`;
 
@@ -986,21 +991,24 @@ const AdminDashboard = () => {
       // ignore
     }
 
-    const normalizedVariants = editingData.variants?.map((variant) => ({
+    const latestEditingData = editingDataRef.current;
+    if (!latestEditingData) return;
+
+    const normalizedVariants = latestEditingData.variants?.map((variant) => ({
       ...variant,
       stock: Math.max(0, variant.stock),
       price: Math.max(0, variant.price),
     }));
 
-    const finalStock = Math.max(0, editingData.stock);
+    const finalStock = Math.max(0, latestEditingData.stock);
 
     const payload = {
-      name: editingData.name,
-      category: editingData.category,
-      price: Math.max(0, editingData.price),
+      name: latestEditingData.name,
+      category: latestEditingData.category,
+      price: Math.max(0, latestEditingData.price),
       stock: finalStock,
       description: editingProduct.description,
-      image: editingData.image || editingProduct.image,
+      image: latestEditingData.image || editingProduct.image,
       variants: normalizedVariants,
     };
 
