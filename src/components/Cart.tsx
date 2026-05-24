@@ -357,7 +357,7 @@ export function Cart() {
                  translate: '-50% -50%',
                  width: 'min(92%, 420px)',
                  margin: 0,
-                 maxHeight: 'calc(100vh - 48px)',
+                 maxHeight: 'calc(100dvh - 48px)',
                  borderRadius: '1.25rem',
                  zIndex: 10001,
                  borderColor: '#fed7aa',
@@ -394,10 +394,10 @@ export function Cart() {
                 </div>
               )}
               <div
-                className="p-5 overflow-y-auto"
+                className="p-5 overflow-y-auto flex-1 min-h-0"
                 style={{
                   overflowY: 'auto',
-                  maxHeight: cart.length > 0 ? 'calc(100vh - 300px)' : 'calc(100vh - 210px)',
+                  maxHeight: 'none',
                   WebkitOverflowScrolling: 'touch',
                   overscrollBehavior: 'contain',
                   touchAction: 'pan-y'
