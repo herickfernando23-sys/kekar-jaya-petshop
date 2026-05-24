@@ -900,7 +900,7 @@ const AdminDashboard = () => {
       throw new Error('Respons upload gambar tidak valid.');
     }
 
-    return result.imageUrl;
+    return resolveImageUrl(result.imageUrl);
   };
 
   const handleDeleteProduct = async (productId: number) => {
