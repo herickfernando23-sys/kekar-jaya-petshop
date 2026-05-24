@@ -20,10 +20,10 @@ export function Navbar() {
   }
 
   return (
-    <nav className="fixed top-4 left-0 right-0 z-50">
+    <nav className="fixed top-2 sm:top-4 left-0 right-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div
-          className="flex justify-between items-center h-16 rounded-full px-4 sm:px-6"
+          className="flex justify-between items-center h-14 sm:h-16 rounded-full px-4 sm:px-6"
           style={{
             backgroundColor: 'rgba(255, 255, 255, 0.85)',
             backdropFilter: 'blur(10px)',

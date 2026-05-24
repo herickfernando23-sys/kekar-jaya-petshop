@@ -214,8 +214,8 @@ export function Cart() {
       {/* Floating Cart Button */}
       <motion.button
         onClick={() => setIsOpen((prev) => !prev)}
-        className="fixed bottom-6 left-6 w-14 h-14 rounded-full flex items-center justify-center shadow-2xl hover:shadow-green-500/50 transition-all z-50 group"
-        style={{ right: '50px', top: '5px', backgroundColor: '#f97316' }}
+        className="fixed bottom-24 left-4 sm:bottom-6 sm:left-6 w-14 h-14 rounded-full flex items-center justify-center shadow-2xl hover:shadow-green-500/50 transition-all z-50 group"
+        style={{ backgroundColor: '#f97316' }}
         initial={{ scale: 0 }}
         animate={{ scale: 1 }}
         whileHover={{ scale: 1.1 }}
@@ -288,7 +288,7 @@ export function Cart() {
               className="fixed bg-white/95 backdrop-blur rounded-2xl shadow-2xl border overflow-hidden flex flex-col"
               style={{
                 right: '14px',
-                top: '84px',
+                top: '96px',
                 width: 'min(420px, calc(100vw - 28px))',
                 maxHeight: 'calc(100vh - 96px)',
                 zIndex: 99,
