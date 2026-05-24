@@ -354,7 +354,7 @@ export function Cart() {
                  right: 'auto',
                  top: '50%',
                  bottom: 'auto',
-                 transform: 'translate(-50%, -50%)',
+                 translate: '-50% -50%',
                  width: 'min(92%, 420px)',
                  margin: 0,
                  maxHeight: 'calc(100vh - 48px)',
