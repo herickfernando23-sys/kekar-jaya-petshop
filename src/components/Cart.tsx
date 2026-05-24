@@ -274,7 +274,7 @@ export function Cart() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               className="cart-backdrop fixed inset-0"
-              style={{ backgroundColor: 'rgba(15, 23, 42, 0.42)', zIndex: 98 }}
+              style={{ backgroundColor: 'rgba(15, 23, 42, 0.42)', zIndex: 109 }}
               onClick={() => setIsOpen(false)}
             />
 
@@ -287,7 +287,7 @@ export function Cart() {
               className="cart-panel fixed bg-white/95 backdrop-blur rounded-2xl shadow-2xl border overflow-hidden flex flex-col"
               style={{
                 width: 'min(420px, calc(100vw - 28px))',
-                zIndex: 101,
+                zIndex: 111,
                 borderColor: '#fed7aa'
               }}
             >
