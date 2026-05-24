@@ -8,14 +8,14 @@ export function Cart() {
   const [isOpen, setIsOpen] = React.useState(false);
   const [isCheckoutReviewOpen, setIsCheckoutReviewOpen] = React.useState(false);
   const [isSubmittingCheckout, setIsSubmittingCheckout] = React.useState(false);
-  const [showMobileDebug, setShowMobileDebug] = React.useState(false);
+  const [isMobile, setIsMobile] = React.useState<boolean>(() =>
+    typeof window !== 'undefined' ? window.innerWidth <= 640 : false
+  );
 
   React.useEffect(() => {
-    try {
-      if (typeof window !== 'undefined') {
-        setShowMobileDebug(window.innerWidth <= 640);
-      }
-    } catch {}
+    const onResize = () => setIsMobile(window.innerWidth <= 640);
+    try { window.addEventListener('resize', onResize); } catch {}
+    return () => { try { window.removeEventListener('resize', onResize); } catch {} };
   }, []);
   const [notification, setNotification] = React.useState<string | null>(null);
   const notificationTimeoutRef = React.useRef<number | null>(null);
@@ -304,7 +304,7 @@ export function Cart() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="cart-backdrop fixed inset-0 debug-cart-backdrop"
+              className="cart-backdrop fixed inset-0"
                 style={{ backgroundColor: 'rgba(15, 23, 42, 0.42)', zIndex: 10000 }}
               onClick={() => setIsOpen(false)}
             />
@@ -315,12 +315,23 @@ export function Cart() {
               animate={{ opacity: 1, x: 0, y: 0 }}
               exit={{ opacity: 0, x: -18, y: 18 }}
               transition={{ duration: 0.25, ease: 'easeOut' }}
-              className="cart-panel fixed bg-white/95 backdrop-blur rounded-2xl shadow-2xl border overflow-hidden flex flex-col debug-cart-panel"
-               style={{
-                width: 'min(420px, calc(100vw - 28px))',
-                zIndex: 10001,
-                borderColor: '#fed7aa'
-              }}
+              className="cart-panel fixed bg-white/95 backdrop-blur rounded-2xl shadow-2xl border overflow-hidden flex flex-col"
+               style={isMobile ? {
+                 left: 0,
+                 right: 0,
+                 bottom: 0,
+                 width: '100%',
+                 margin: 0,
+                 maxHeight: '70vh',
+                 borderRadius: '1rem 1rem 0 0',
+                 zIndex: 10001,
+                 borderColor: '#fed7aa',
+                 backgroundColor: '#ffffff'
+               } : {
+                 width: 'min(420px, calc(100vw - 28px))',
+                 zIndex: 10001,
+                 borderColor: '#fed7aa'
+               }}
             >
               {/* Header */}
               <div
