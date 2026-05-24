@@ -310,8 +310,18 @@ const AdminDashboard = () => {
       }));
 
       const cachedOrders = readCachedOrders();
+      const serverOrderIds = new Set<number>(mappedOrders.map((order) => order.id));
+      const extraCachedOrders = cachedOrders.filter((order) => {
+        if (isLocalOrder(order)) {
+          return true;
+        }
+
+        const cachedId = getValidOrderId(order);
+        return cachedId !== null && serverOrderIds.has(cachedId);
+      });
+
       const mergedOrders = Array.from(
-        new Map([...cachedOrders, ...mappedOrders].map((order) => [orderMergeKey(order), order])).values()
+        new Map([...mappedOrders, ...extraCachedOrders].map((order) => [orderMergeKey(order), order])).values()
       );
 
       setOrders(mergedOrders);
