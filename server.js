@@ -716,7 +716,18 @@ app.post('/orders', async (req, res) => {
         );
       }
 
-      return productId;
+      const cleanName = typeof item.name === 'string' && item.name.trim() ? item.name.trim() : `Produk ${productId}`;
+      const productSlug = `${slugify(cleanName) || 'produk'}-${productId}`.slice(0, 220);
+      const [resolvedRows] = await connection.query(
+        'SELECT id FROM products WHERE id = ? OR slug = ? LIMIT 1',
+        [productId, productSlug]
+      );
+
+      if (resolvedRows.length === 0) {
+        throw new Error('Produk order tidak dapat disinkronkan ke server');
+      }
+
+      return Number(resolvedRows[0].id);
     };
 
     const ensureOrderVariantExists = async (item, productId) => {
@@ -747,7 +758,19 @@ app.post('/orders', async (req, res) => {
         );
       }
 
-      return variantId;
+      const variantName = typeof item.variant === 'string' && item.variant.trim()
+        ? item.variant.trim()
+        : 'Varian order';
+      const [resolvedRows] = await connection.query(
+        'SELECT id FROM product_variants WHERE id = ? OR (product_id = ? AND name = ?) LIMIT 1',
+        [variantId, productId, variantName]
+      );
+
+      if (resolvedRows.length === 0) {
+        throw new Error('Varian order tidak dapat disinkronkan ke server');
+      }
+
+      return Number(resolvedRows[0].id);
     };
 
     // Insert order
@@ -787,7 +810,10 @@ app.post('/orders', async (req, res) => {
       connection.release();
     }
     console.error('Error creating order:', error);
-    res.status(500).json({ error: 'Gagal membuat pesanan' });
+    res.status(500).json({
+      error: error?.message || 'Gagal membuat pesanan',
+      code: error?.code || null,
+    });
   }
 });
 
