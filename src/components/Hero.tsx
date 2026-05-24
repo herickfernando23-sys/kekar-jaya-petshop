@@ -32,7 +32,7 @@ export function Hero() {
               Premium Petshop Experience
               <span className="block" style={{ color: '#ea580c' }}>Untuk Kucing Kesayangan Anda</span>
             </h1>
-            <p data-reveal className="reveal-on-scroll text-lg max-w-none sm:max-w-[640px]" style={{ color: '#4b5563', transitionDelay: '140ms' }}>
+            <p data-reveal className="reveal-on-scroll text-lg" style={{ color: '#4b5563', maxWidth: '640px', transitionDelay: '140ms' }}>
               Toko Kekar Jaya menghadirkan produk kurasi terbaik: makanan premium, pasir higienis,
               dan perlengkapan kucing pilihan, dengan pelayanan cepat dan personal via WhatsApp.
             </p>
