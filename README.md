@@ -32,8 +32,11 @@ node server.js
 
 ## Cara paling mudah bikin jadi website online
 
-### 1) Deploy backend dulu
-Paling gampang pakai Railway/Render.
+### 1) Deploy backend dulu ke Render
+
+Pakai file [render.yaml](render.yaml) di root project ini.
+
+Di Render, pilih **New +** lalu **Blueprint**, kemudian connect repo ini.
 
 Set environment backend:
 - `DB_HOST`
@@ -43,7 +46,7 @@ Set environment backend:
 - `PORT`
 
 Setelah deploy, kamu akan dapat URL backend, contoh:
-- `https://kekar-api-production.up.railway.app`
+- `https://kekar-jaya-backend.onrender.com`
 
 ### 2) Deploy frontend ke Vercel/Netlify
 
@@ -51,7 +54,7 @@ Di setting Environment Variables frontend, isi:
 - `VITE_API_BASE_URL` = URL backend kamu
 
 Contoh:
-- `VITE_API_BASE_URL=https://kekar-api-production.up.railway.app`
+- `VITE_API_BASE_URL=https://kekar-jaya-backend.onrender.com`
 
 Build config frontend:
 - Build command: `npm run build`
