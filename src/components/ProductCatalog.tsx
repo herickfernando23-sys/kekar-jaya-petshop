@@ -528,11 +528,11 @@ export function ProductCatalog() {
                 className="reveal-on-scroll bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-2xl transition-all transform hover:-translate-y-1 hover:scale-105"
                 style={{ ['--reveal-delay' as string]: `${Math.min(index * 90, 450)}ms` }}
               >
-                <div className="relative aspect-[4/3] bg-gray-100 overflow-hidden flex items-center justify-center group">
+                <div className="relative aspect-[4/3] sm:aspect-[3/2] bg-gray-100 overflow-hidden flex items-center justify-center group">
                   <ImageWithFallback
                     src={displayImage}
                     alt={product.name}
-                    className="max-h-full max-w-full object-contain transition-transform duration-300 group-hover:scale-110"
+                    className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                   />
                 </div>
                 <div className="p-6">

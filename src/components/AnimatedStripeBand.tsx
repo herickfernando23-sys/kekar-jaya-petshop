@@ -5,15 +5,15 @@ export function AnimatedStripeBand() {
     <section className="relative mt-10 sm:mt-14 lg:mt-16 w-full overflow-hidden">
       <div className="overflow-hidden border-y border-orange-100 bg-white/75 backdrop-blur-sm shadow-[0_10px_24px_rgba(15,23,42,0.06)]">
         <svg
-          className="block h-16 w-full sm:h-20"
-          viewBox="0 0 1600 72"
+          className="block h-24 w-full sm:h-20"
+          viewBox="0 0 1600 96"
           preserveAspectRatio="none"
           role="img"
           aria-label="Strip animasi bertema kucing"
         >
           <defs>
             <clipPath id="hero-stripe-clip">
-              <rect x="0" y="0" width="1600" height="72" rx="0" ry="0" />
+              <rect x="0" y="0" width="1600" height="96" rx="0" ry="0" />
             </clipPath>
             <linearGradient id="cat-background" x1="0%" y1="0%" x2="100%" y2="0%">
               <stop offset="0%" stopColor="#fff7ed" />
@@ -22,7 +22,7 @@ export function AnimatedStripeBand() {
             </linearGradient>
           </defs>
           <g clipPath="url(#hero-stripe-clip)">
-            <rect width="1600" height="72" fill="url(#cat-background)" />
+            <rect width="1600" height="96" fill="url(#cat-background)" />
             <g opacity="0.9">
               <g>
                 <animateTransform
@@ -40,7 +40,7 @@ export function AnimatedStripeBand() {
                     x={index * 220}
                     y="0"
                     width="220"
-                    height="72"
+                    height="96"
                     opacity="0.9"
                     preserveAspectRatio="xMidYMid slice"
                   />
@@ -52,7 +52,7 @@ export function AnimatedStripeBand() {
                     x={9460 + index * 220}
                     y="0"
                     width="220"
-                    height="72"
+                    height="96"
                     opacity="0.9"
                     preserveAspectRatio="xMidYMid slice"
                   />
