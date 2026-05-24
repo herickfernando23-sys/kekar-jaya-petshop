@@ -357,21 +357,20 @@ export function Cart() {
 
             {/* Cart Panel */}
             <motion.div
-              initial={{ opacity: 0, x: -18, y: 18 }}
-              animate={{ opacity: 1, x: 0, y: 0 }}
-              exit={{ opacity: 0, x: -18, y: 18 }}
+              initial={isMobile ? { opacity: 0, y: 28 } : { opacity: 0, x: -18, y: 18 }}
+              animate={isMobile ? { opacity: 1, y: 0 } : { opacity: 1, x: 0, y: 0 }}
+              exit={isMobile ? { opacity: 0, y: 28 } : { opacity: 0, x: -18, y: 18 }}
               transition={{ duration: 0.25, ease: 'easeOut' }}
               className="cart-panel fixed bg-white/95 backdrop-blur rounded-2xl shadow-2xl border overflow-hidden flex flex-col"
                style={isMobile ? {
-                 left: '50%',
-                 right: 'auto',
-                 top: '50%',
-                 bottom: 'auto',
-                 translate: '-50% -50%',
-                 width: 'min(92%, 420px)',
+                 left: '12px',
+                 right: '12px',
+                 top: 'auto',
+                 bottom: '12px',
+                 width: 'auto',
                  margin: 0,
-                 maxHeight: 'calc(100dvh - 48px)',
-                 borderRadius: '1.25rem',
+                 maxHeight: 'min(78dvh, 640px)',
+                 borderRadius: '1.1rem',
                  zIndex: 10001,
                  borderColor: '#fed7aa',
                  backgroundColor: '#ffffff'
