@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useEffect, useLayoutEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CheckCircle2, Clock3, RefreshCw, Trash2, X } from 'lucide-react';
 import { getStoredProducts, PRODUCT_STORAGE_KEY, DELETED_PRODUCT_IDS_KEY } from '../data/products';
@@ -105,7 +105,7 @@ const AdminDashboard = () => {
     return `${apiBaseUrl}${imagePath.startsWith('/') ? '' : '/'}${imagePath}`;
   };
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     editingDataRef.current = editingData;
   }, [editingData]);
 
@@ -1569,8 +1569,7 @@ const AdminDashboard = () => {
                   <label className="block text-sm font-bold text-gray-700 mb-1">
                     Kategori
                   </label>
-                  <input
-                    type="text"
+                  <select
                     value={editingData.category}
                     onChange={(e) =>
                       setEditingData({
@@ -1579,7 +1578,13 @@ const AdminDashboard = () => {
                       })
                     }
                     className="w-full px-3 py-2 border-2 border-orange-400 rounded font-bold focus:outline-none focus:ring-2 focus:ring-orange-500"
-                  />
+                  >
+                    {categories.map((category) => (
+                      <option key={category} value={category}>
+                        {category}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 <div>
@@ -1595,10 +1600,7 @@ const AdminDashboard = () => {
 
                       try {
                         const imageUrl = await uploadImageFile(selectedFile);
-                        setEditingData({
-                          ...editingData,
-                          image: imageUrl,
-                        });
+                        setEditingData((current) => (current ? { ...current, image: imageUrl } : current));
                       } catch (error: any) {
                         window.alert(error?.message || 'Gagal upload gambar.');
                       }
@@ -1801,12 +1803,16 @@ const AdminDashboard = () => {
 
                               try {
                                 const imageUrl = await uploadImageFile(selectedFile);
-                                setEditingData({
-                                  ...editingData,
-                                  variants: editingData.variants?.map((item, itemIndex) =>
-                                    itemIndex === index ? { ...item, image: imageUrl } : item
-                                  ),
-                                });
+                                setEditingData((current) => (
+                                  current
+                                    ? {
+                                        ...current,
+                                        variants: current.variants?.map((item, itemIndex) =>
+                                          itemIndex === index ? { ...item, image: imageUrl } : item
+                                        ),
+                                      }
+                                    : current
+                                ));
                               } catch (error: any) {
                                 window.alert(error?.message || 'Gagal upload gambar varian.');
                               }
