@@ -287,7 +287,7 @@ export function Cart() {
               className="cart-panel fixed bg-white/95 backdrop-blur rounded-2xl shadow-2xl border overflow-hidden flex flex-col"
               style={{
                 width: 'min(420px, calc(100vw - 28px))',
-                zIndex: 99,
+                zIndex: 101,
                 borderColor: '#fed7aa'
               }}
             >
