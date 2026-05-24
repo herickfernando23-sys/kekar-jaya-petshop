@@ -23,7 +23,7 @@ export function Hero() {
           <div className="space-y-6">
             <div
               data-reveal
-              className="reveal-on-scroll inline-block px-4 py-2 rounded-full text-sm font-semibold mt-14 sm:mt-0"
+              className="reveal-on-scroll hero-badge inline-block px-4 py-2 rounded-full text-sm font-semibold mt-14 sm:mt-0"
               style={{ backgroundColor: '#ffedd5', color: '#c2410c', border: '1px solid #fdba74' }}
             >
               PET CARE COMMERCE

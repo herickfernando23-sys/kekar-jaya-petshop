@@ -525,6 +525,11 @@
       backdrop-filter: blur(2px);
     }
 
+    /* Move hero badge slightly further down on small screens */
+    .public-site .hero-badge {
+      margin-top: 1.5rem !important;
+    }
+
     /* Debug helpers: visible only on small screens to diagnose overlay/panel placement */
     .public-site .debug-cart-panel {
       outline: 3px solid rgba(16, 185, 129, 0.9);
