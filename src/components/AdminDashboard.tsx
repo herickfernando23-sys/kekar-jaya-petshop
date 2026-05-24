@@ -320,8 +320,10 @@ const AdminDashboard = () => {
         return cachedId !== null && serverOrderIds.has(cachedId);
       });
 
+      // Server data should always win over cache when the same order exists in both.
+      // This prevents a stale local copy from overriding a confirmed/cancelled status.
       const mergedOrders = Array.from(
-        new Map([...mappedOrders, ...extraCachedOrders].map((order) => [orderMergeKey(order), order])).values()
+        new Map([...extraCachedOrders, ...mappedOrders].map((order) => [orderMergeKey(order), order])).values()
       );
 
       setOrders(mergedOrders);
