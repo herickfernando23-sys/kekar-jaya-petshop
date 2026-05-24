@@ -340,7 +340,25 @@ export function Cart() {
               >
                 <div>
                   <h2 className="text-xl leading-tight font-bold text-gray-900">Keranjang Belanja</h2>
-                  <p className="text-sm text-gray-500 mt-1">{getTotalItems()} item dipilih</p>
+                    <p className="text-sm text-gray-500 mt-1">{getTotalItems()} item dipilih</p>
+                    {isMobile && (
+                      <div className="mt-2 text-xs text-gray-600">
+                        <div>DEBUG: context items = {getTotalItems()}</div>
+                        <div>
+                          DEBUG: storage items = {
+                            (() => {
+                              try {
+                                const raw = typeof window !== 'undefined' ? localStorage.getItem('cartItems') : null;
+                                const parsed = raw ? JSON.parse(raw) : [];
+                                return Array.isArray(parsed) ? parsed.length : 0;
+                              } catch (e) {
+                                return 'err';
+                              }
+                            })()
+                          }
+                        </div>
+                      </div>
+                    )}
                 </div>
                 <button
                   onClick={() => setIsOpen(false)}
