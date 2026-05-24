@@ -274,7 +274,7 @@ export function Cart() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 backdrop-blur-[2px]"
+              className="fixed inset-0"
               style={{ backgroundColor: 'rgba(15, 23, 42, 0.42)', zIndex: 98 }}
               onClick={() => setIsOpen(false)}
             />
@@ -414,7 +414,7 @@ export function Cart() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 backdrop-blur-[2px]"
+              className="fixed inset-0"
               style={{ backgroundColor: 'rgba(15, 23, 42, 0.52)', zIndex: 100 }}
               onClick={() => setIsCheckoutReviewOpen(false)}
             />
