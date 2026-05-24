@@ -284,13 +284,7 @@ const AdminDashboard = () => {
       localStorage.setItem(ADMIN_CUSTOM_CATEGORIES_KEY, JSON.stringify(serverCategories));
       window.dispatchEvent(new Event('categories-updated'));
     } catch {
-      try {
-        const raw = localStorage.getItem(ADMIN_CUSTOM_CATEGORIES_KEY);
-        const stored = raw ? JSON.parse(raw) : [];
-        setCustomCategories(Array.isArray(stored) ? stored.filter((category) => typeof category === 'string') : []);
-      } catch {
-        setCustomCategories([]);
-      }
+      setCustomCategories([]);
     }
   };
 

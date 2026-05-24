@@ -297,14 +297,7 @@ export function ProductCatalog() {
         setCustomCategories(serverCategories);
         localStorage.setItem(ADMIN_CUSTOM_CATEGORIES_KEY, JSON.stringify(serverCategories));
       } catch {
-        try {
-          const storedCustomCategories = JSON.parse(
-            localStorage.getItem(ADMIN_CUSTOM_CATEGORIES_KEY) || '[]'
-          ) as string[];
-          setCustomCategories(Array.isArray(storedCustomCategories) ? storedCustomCategories : []);
-        } catch {
-          setCustomCategories([]);
-        }
+        setCustomCategories([]);
       }
     };
 
