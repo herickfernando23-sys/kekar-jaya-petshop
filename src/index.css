@@ -505,6 +505,26 @@
       bottom: 6rem;
     }
 
+    .public-site .cart-panel {
+      left: 50%;
+      right: auto;
+      top: 50%;
+      bottom: auto;
+      translate: -50% -50%;
+      width: min(92%, 420px);
+      margin: 0;
+      max-height: calc(100vh - 48px);
+      border-radius: 1.5rem;
+      z-index: 9999 !important;
+      background-color: #ffffff !important;
+    }
+
+    .public-site .cart-backdrop {
+      background-color: rgba(15, 23, 42, 0.36);
+      z-index: 9998 !important;
+      backdrop-filter: blur(2px);
+    }
+
     /* Move hero badge slightly further down on small screens */
     .public-site .hero-badge {
       margin-top: 1.5rem !important;

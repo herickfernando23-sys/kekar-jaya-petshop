@@ -222,14 +222,24 @@ export function Cart() {
     if (!isOpen) return;
 
     let didDispatch = false;
-    let syncTimeoutId: number | null = null;
+    // If context shows empty but localStorage has items, request provider to resync
+    try {
+      if (getTotalItems() === 0) {
+        const raw = typeof window !== 'undefined' ? localStorage.getItem('cartItems') : null;
+        const parsed = raw ? JSON.parse(raw) : [];
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          // show syncing UI until provider replies
+          setIsSyncing(true);
+          window.dispatchEvent(new CustomEvent('cart-sync'));
+          didDispatch = true;
+        }
+      }
+    } catch (e) {
+      // ignore
+    }
 
     const onSynced = () => {
       setIsSyncing(false);
-      if (syncTimeoutId !== null) {
-        window.clearTimeout(syncTimeoutId);
-        syncTimeoutId = null;
-      }
       // ensure panel visible
       requestAnimationFrame(() => {
         try {
@@ -241,29 +251,9 @@ export function Cart() {
       });
     };
 
-    // Register listener first to avoid missing a very fast cart-synced response.
-    window.addEventListener('cart-synced', onSynced as EventListener);
-
-    // If context shows empty but localStorage has items, request provider to resync.
-    try {
-      if (getTotalItems() === 0) {
-        const raw = typeof window !== 'undefined' ? localStorage.getItem('cartItems') : null;
-        const parsed = raw ? JSON.parse(raw) : [];
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setIsSyncing(true);
-          window.dispatchEvent(new CustomEvent('cart-sync'));
-          didDispatch = true;
-          syncTimeoutId = window.setTimeout(() => {
-            setIsSyncing(false);
-          }, 1200);
-        }
-      }
-    } catch (e) {
-      // ignore
-    }
-
-    if (!didDispatch) {
-      setIsSyncing(false);
+    if (didDispatch) {
+      window.addEventListener('cart-synced', onSynced as EventListener);
+    } else {
       // no dispatch, just ensure panel in view
       requestAnimationFrame(() => {
         try {
@@ -276,9 +266,6 @@ export function Cart() {
     }
 
     return () => {
-      if (syncTimeoutId !== null) {
-        window.clearTimeout(syncTimeoutId);
-      }
       try { window.removeEventListener('cart-synced', onSynced as EventListener); } catch {}
     };
   }, [isOpen]);
@@ -342,27 +329,36 @@ export function Cart() {
       </AnimatePresence>
 
       {/* Cart Modal */}
-      {isOpen && (
+      <AnimatePresence>
+        {isOpen && (
           <>
             {/* Backdrop */}
-            <div
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
               className="cart-backdrop fixed inset-0"
-              style={{ backgroundColor: 'rgba(15, 23, 42, 0.42)', zIndex: 10000 }}
+                style={{ backgroundColor: 'rgba(15, 23, 42, 0.42)', zIndex: 10000 }}
               onClick={() => setIsOpen(false)}
             />
 
             {/* Cart Panel */}
-            <div
+            <motion.div
+              initial={{ opacity: 0, x: -18, y: 18 }}
+              animate={{ opacity: 1, x: 0, y: 0 }}
+              exit={{ opacity: 0, x: -18, y: 18 }}
+              transition={{ duration: 0.25, ease: 'easeOut' }}
               className="cart-panel fixed bg-white/95 backdrop-blur rounded-2xl shadow-2xl border overflow-hidden flex flex-col"
                style={isMobile ? {
-                 left: '12px',
-                 right: '12px',
-                 top: 'auto',
-                 bottom: '12px',
-                 width: 'auto',
+                 left: '50%',
+                 right: 'auto',
+                 top: '50%',
+                 bottom: 'auto',
+                 transform: 'translate(-50%, -50%)',
+                 width: 'min(92%, 420px)',
                  margin: 0,
-                 maxHeight: 'min(78dvh, 640px)',
-                 borderRadius: '1.1rem',
+                 maxHeight: 'calc(100dvh - 48px)',
+                 borderRadius: '1.25rem',
                  zIndex: 10001,
                  borderColor: '#fed7aa',
                  backgroundColor: '#ffffff'
@@ -485,9 +481,10 @@ export function Cart() {
                   </div>
                 </div>
               )}
-            </div>
+            </motion.div>
           </>
         )}
+      </AnimatePresence>
 
       <AnimatePresence>
         {isCheckoutReviewOpen && cart.length > 0 && (
