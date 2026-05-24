@@ -115,6 +115,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
         const fresh = getInitialCart();
         stocksRef.current = stocksRef.current || [];
         setCart(fresh);
+        // Notify that sync completed
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('cart-synced'));
+        }
       } catch (e) {
         // ignore
       }

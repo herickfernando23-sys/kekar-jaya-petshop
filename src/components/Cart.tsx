@@ -221,31 +221,56 @@ export function Cart() {
   React.useEffect(() => {
     if (!isOpen) return;
 
+    let didDispatch = false;
     // If context shows empty but localStorage has items, request provider to resync
     try {
       if (getTotalItems() === 0) {
         const raw = typeof window !== 'undefined' ? localStorage.getItem('cartItems') : null;
         const parsed = raw ? JSON.parse(raw) : [];
         if (Array.isArray(parsed) && parsed.length > 0) {
+          // show syncing UI until provider replies
+          setIsSyncing(true);
           window.dispatchEvent(new CustomEvent('cart-sync'));
+          didDispatch = true;
         }
       }
     } catch (e) {
       // ignore
     }
 
-    // Give layout a frame to settle then ensure panel is in view
-    requestAnimationFrame(() => {
-      try {
-        const panel = document.querySelector('.cart-panel') as HTMLElement | null;
-        if (panel && typeof panel.scrollIntoView === 'function') {
-          try { panel.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) {}
-        }
-      } catch (e) {
-        // ignore
-      }
-    });
+    const onSynced = () => {
+      setIsSyncing(false);
+      // ensure panel visible
+      requestAnimationFrame(() => {
+        try {
+          const panel = document.querySelector('.cart-panel') as HTMLElement | null;
+          if (panel && typeof panel.scrollIntoView === 'function') {
+            try { panel.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) {}
+          }
+        } catch (e) {}
+      });
+    };
+
+    if (didDispatch) {
+      window.addEventListener('cart-synced', onSynced as EventListener);
+    } else {
+      // no dispatch, just ensure panel in view
+      requestAnimationFrame(() => {
+        try {
+          const panel = document.querySelector('.cart-panel') as HTMLElement | null;
+          if (panel && typeof panel.scrollIntoView === 'function') {
+            try { panel.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) {}
+          }
+        } catch (e) {}
+      });
+    }
+
+    return () => {
+      try { window.removeEventListener('cart-synced', onSynced as EventListener); } catch {}
+    };
   }, [isOpen]);
+
+  const [isSyncing, setIsSyncing] = React.useState(false);
 
   return (
     <>
@@ -363,6 +388,11 @@ export function Cart() {
               </div>
 
               {/* Cart Items */}
+              {isSyncing && (
+                <div className="p-6 text-center">
+                  <div className="text-sm font-semibold text-gray-700">Mengambil isi keranjang…</div>
+                </div>
+              )}
               <div
                 className="p-5 overflow-y-auto"
                 style={{
