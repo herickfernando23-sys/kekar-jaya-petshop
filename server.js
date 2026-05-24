@@ -21,6 +21,33 @@ const slugify = (value = '') => value
   .replace(/-+/g, '-')
   .replace(/^-|-$/g, '');
 
+const buildMysqlConnectionConfig = () => {
+  const databaseUrl = process.env.DATABASE_URL || process.env.MYSQL_URL || process.env.JAWSDB_URL || '';
+
+  if (databaseUrl) {
+    try {
+      const parsedUrl = new URL(databaseUrl);
+      return {
+        host: parsedUrl.hostname,
+        port: Number(parsedUrl.port || 3306),
+        user: decodeURIComponent(parsedUrl.username || process.env.DB_USER || process.env.MYSQLUSER || 'root'),
+        password: decodeURIComponent(parsedUrl.password || process.env.DB_PASSWORD || process.env.MYSQLPASSWORD || ''),
+        database: decodeURIComponent(parsedUrl.pathname.replace(/^\//, '') || process.env.DB_NAME || process.env.MYSQLDATABASE || 'kekar_jaya_petshop'),
+      };
+    } catch (error) {
+      console.warn('⚠️  Invalid MySQL URL config, falling back to individual env vars:', error?.message || error);
+    }
+  }
+
+  return {
+    host: process.env.DB_HOST || process.env.MYSQLHOST || 'localhost',
+    port: Number(process.env.DB_PORT || process.env.MYSQLPORT || 3306),
+    user: process.env.DB_USER || process.env.MYSQLUSER || 'root',
+    password: process.env.DB_PASSWORD || process.env.MYSQLPASSWORD || '',
+    database: process.env.DB_NAME || process.env.MYSQLDATABASE || 'kekar_jaya_petshop',
+  };
+};
+
 const getNextAvailableCategoryId = async (connection) => {
   const [rows] = await connection.query('SELECT id FROM categories ORDER BY id ASC');
   let nextId = 1;
@@ -83,12 +110,9 @@ const uploadImageRouter = require('./upload-image');
 app.use(uploadImageRouter);
 
 // MySQL Connection Pool
+const mysqlConnectionConfig = buildMysqlConnectionConfig();
 const pool = mysql.createPool({
-  host: process.env.DB_HOST || process.env.MYSQLHOST || 'localhost',
-  port: Number(process.env.DB_PORT || process.env.MYSQLPORT || 3306),
-  user: process.env.DB_USER || process.env.MYSQLUSER || 'root',
-  password: process.env.DB_PASSWORD || process.env.MYSQLPASSWORD || '',
-  database: process.env.DB_NAME || process.env.MYSQLDATABASE || 'kekar_jaya_petshop',
+  ...mysqlConnectionConfig,
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
