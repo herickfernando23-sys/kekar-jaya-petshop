@@ -270,24 +270,59 @@ export function ProductCatalog() {
       }
     };
 
+    const loadCategories = async () => {
+      try {
+        const response = await fetch(`${apiBaseUrl}/categories?t=${Date.now()}`, {
+          headers: {
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0',
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+
+        const data = await response.json();
+        if (!Array.isArray(data)) {
+          throw new Error('Format data kategori tidak valid');
+        }
+
+        const serverCategories = data
+          .map((item: any) => (typeof item === 'string' ? item : item?.name))
+          .filter((category: any): category is string => typeof category === 'string' && category.trim())
+          .map((category: string) => category.trim());
+
+        setCustomCategories(serverCategories);
+        localStorage.setItem(ADMIN_CUSTOM_CATEGORIES_KEY, JSON.stringify(serverCategories));
+      } catch {
+        try {
+          const storedCustomCategories = JSON.parse(
+            localStorage.getItem(ADMIN_CUSTOM_CATEGORIES_KEY) || '[]'
+          ) as string[];
+          setCustomCategories(Array.isArray(storedCustomCategories) ? storedCustomCategories : []);
+        } catch {
+          setCustomCategories([]);
+        }
+      }
+    };
+
     loadProducts(true);
+    loadCategories();
 
     // Polling: Auto-refresh products every 3 seconds for faster database sync
     const pollInterval = setInterval(() => {
       loadProducts(false);
     }, 3000);
 
-    try {
-      const storedCustomCategories = JSON.parse(
-        localStorage.getItem(ADMIN_CUSTOM_CATEGORIES_KEY) || '[]'
-      ) as string[];
-      setCustomCategories(Array.isArray(storedCustomCategories) ? storedCustomCategories : []);
-    } catch {
-      setCustomCategories([]);
-    }
+    const pollCategoriesInterval = setInterval(() => {
+      loadCategories();
+    }, 3000);
 
     return () => {
       clearInterval(pollInterval);
+      clearInterval(pollCategoriesInterval);
     };
   }, []);
 

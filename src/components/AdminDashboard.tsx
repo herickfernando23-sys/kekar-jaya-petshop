@@ -68,13 +68,7 @@ const AdminDashboard = () => {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [editingData, setEditingData] = useState<EditingData | null>(null);
   const [isAddProductOpen, setIsAddProductOpen] = useState(false);
-  const [customCategories, setCustomCategories] = useState<string[]>(() => {
-    try {
-      return JSON.parse(localStorage.getItem(ADMIN_CUSTOM_CATEGORIES_KEY) || '[]') as string[];
-    } catch {
-      return [];
-    }
-  });
+  const [customCategories, setCustomCategories] = useState<string[]>([]);
   const [newCategoryInput, setNewCategoryInput] = useState('');
   const [newProduct, setNewProduct] = useState<NewProductData>({
     name: '',
@@ -266,6 +260,37 @@ const AdminDashboard = () => {
       window.dispatchEvent(new Event('products-updated'));
     } catch {
       // Keep the current cached data when backend is unavailable.
+    }
+  };
+
+  const syncCustomCategoriesFromServer = async () => {
+    try {
+      const response = await fetch(`${apiBaseUrl}/categories?t=${Date.now()}`);
+      if (!response.ok) {
+        throw new Error('');
+      }
+
+      const data = await response.json();
+      if (!Array.isArray(data)) {
+        throw new Error('Format data kategori tidak valid.');
+      }
+
+      const serverCategories = data
+        .map((item: any) => (typeof item === 'string' ? item : item?.name))
+        .filter((category: any): category is string => typeof category === 'string' && category.trim())
+        .map((category: string) => category.trim());
+
+      setCustomCategories(serverCategories);
+      localStorage.setItem(ADMIN_CUSTOM_CATEGORIES_KEY, JSON.stringify(serverCategories));
+      window.dispatchEvent(new Event('categories-updated'));
+    } catch {
+      try {
+        const raw = localStorage.getItem(ADMIN_CUSTOM_CATEGORIES_KEY);
+        const stored = raw ? JSON.parse(raw) : [];
+        setCustomCategories(Array.isArray(stored) ? stored.filter((category) => typeof category === 'string') : []);
+      } catch {
+        setCustomCategories([]);
+      }
     }
   };
 
@@ -510,24 +535,7 @@ const AdminDashboard = () => {
 
     syncProductsFromServer();
     syncOrdersFromServer();
-
-    // Remove stray local custom category named 'tes' (case-insensitive) if present
-    try {
-      const raw = localStorage.getItem(ADMIN_CUSTOM_CATEGORIES_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed)) {
-          const filtered = parsed.filter((c: any) => typeof c === 'string' && c.trim().toLowerCase() !== 'tes');
-          if (filtered.length !== parsed.length) {
-            localStorage.setItem(ADMIN_CUSTOM_CATEGORIES_KEY, JSON.stringify(filtered));
-            setCustomCategories(filtered);
-            window.dispatchEvent(new Event('categories-updated'));
-          }
-        }
-      }
-    } catch {
-      // ignore malformed localStorage
-    }
+    syncCustomCategoriesFromServer();
 
     window.addEventListener('products-updated', handleProductsUpdated);
     window.addEventListener('orders-updated', syncOrdersFromServer);
@@ -637,13 +645,45 @@ const AdminDashboard = () => {
       return;
     }
 
-    const updatedCustomCategories = [...customCategories, categoryName].sort((a, b) => a.localeCompare(b, 'id'));
-    setCustomCategories(updatedCustomCategories);
-    localStorage.setItem(ADMIN_CUSTOM_CATEGORIES_KEY, JSON.stringify(updatedCustomCategories));
-    window.dispatchEvent(new Event('categories-updated'));
-    setSelectedCategory(categoryName);
-    setNewProduct((prev) => ({ ...prev, category: categoryName }));
-    setNewCategoryInput('');
+    const persistCategory = async () => {
+      try {
+        const response = await fetch(`${apiBaseUrl}/categories`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ name: categoryName }),
+        });
+
+        if (!response.ok) {
+          let message = 'Gagal menambahkan kategori ke server.';
+          try {
+            const errorBody = await response.json();
+            if (errorBody?.error) {
+              message = errorBody.error;
+            }
+          } catch {
+            // Use default message when server doesn't return JSON.
+          }
+          throw new Error(message);
+        }
+
+        await syncCustomCategoriesFromServer();
+        setSelectedCategory(categoryName);
+        setNewProduct((prev) => ({ ...prev, category: categoryName }));
+        setNewCategoryInput('');
+      } catch {
+        const updatedCustomCategories = [...customCategories, categoryName].sort((a, b) => a.localeCompare(b, 'id'));
+        setCustomCategories(updatedCustomCategories);
+        localStorage.setItem(ADMIN_CUSTOM_CATEGORIES_KEY, JSON.stringify(updatedCustomCategories));
+        window.dispatchEvent(new Event('categories-updated'));
+        setSelectedCategory(categoryName);
+        setNewProduct((prev) => ({ ...prev, category: categoryName }));
+        setNewCategoryInput('');
+      }
+    };
+
+    void persistCategory();
   };
 
   const handleDeleteCategory = async (categoryName: string) => {
@@ -665,17 +705,14 @@ const AdminDashboard = () => {
 
     if (!window.confirm(confirmMessage)) return;
 
-    let serverMissing = false;
+    let serverUnavailable = false;
     try {
       const response = await fetch(`${apiBaseUrl}/categories/${encodeURIComponent(categoryName)}`, {
         method: 'DELETE',
       });
 
       if (!response.ok) {
-        if (response.status === 404) {
-          // Category not found on server — treat as local-only and continue to remove locally
-          serverMissing = true;
-        } else {
+        if (response.status !== 404) {
           let message = 'Gagal menghapus kategori di server.';
           try {
             const errorBody = await response.json();
@@ -688,14 +725,28 @@ const AdminDashboard = () => {
           throw new Error(message);
         }
       }
-    } catch (error: any) {
-      if (!serverMissing) {
-        const isServerUnavailable = error instanceof TypeError || /fetch/i.test(error?.message || '');
-        if (!isServerUnavailable) {
-          // Even if the server rejects the request, keep the local category deletion path alive.
-          console.warn(error?.message || 'Gagal menghapus kategori di server.');
-        }
+
+      await Promise.all([syncProductsFromServer(), syncCustomCategoriesFromServer()]);
+
+      if (selectedCategory?.trim().toLowerCase() === normalizedCategory) {
+        setSelectedCategory(null);
       }
+
+      setNewProduct((current) => (
+        current.category.trim().toLowerCase() === normalizedCategory
+          ? { ...current, category: 'Makanan Kucing' }
+          : current
+      ));
+      return;
+    } catch (error: any) {
+      serverUnavailable = error instanceof TypeError || /fetch/i.test(error?.message || '');
+      if (!serverUnavailable) {
+        console.warn(error?.message || 'Gagal menghapus kategori di server.');
+      }
+    }
+
+    if (!serverUnavailable) {
+      return;
     }
 
     if (affectedProductsCount > 0) {
@@ -721,14 +772,6 @@ const AdminDashboard = () => {
           : current
       ));
     }
-
-    const updatedCustomCategories = customCategories.filter(
-      (category) => category.trim().toLowerCase() !== normalizedCategory
-    );
-    setCustomCategories(updatedCustomCategories);
-    localStorage.setItem(ADMIN_CUSTOM_CATEGORIES_KEY, JSON.stringify(updatedCustomCategories));
-    window.dispatchEvent(new Event('categories-updated'));
-
     if (selectedCategory?.trim().toLowerCase() === normalizedCategory) {
       setSelectedCategory(null);
     }

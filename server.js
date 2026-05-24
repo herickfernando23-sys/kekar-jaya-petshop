@@ -306,6 +306,67 @@ app.get('/categories', async (req, res) => {
   }
 });
 
+// POST /categories - Create a category if it does not exist
+app.post('/categories', async (req, res) => {
+  const categoryName = typeof req.body?.name === 'string' ? req.body.name.trim() : '';
+
+  if (!categoryName) {
+    return res.status(400).json({ error: 'Nama kategori wajib diisi' });
+  }
+
+  let connection;
+  try {
+    connection = await pool.getConnection();
+
+    const [existingRows] = await connection.query(
+      'SELECT id, name, slug FROM categories WHERE LOWER(name) = LOWER(?) LIMIT 1',
+      [categoryName]
+    );
+
+    if (existingRows.length > 0) {
+      connection.release();
+      return res.json({
+        message: 'Kategori sudah ada',
+        category: existingRows[0],
+      });
+    }
+
+    const nextCategoryId = await getNextAvailableCategoryId(connection);
+    const categorySlugBase = slugify(categoryName) || `kategori-${Date.now()}`;
+    let categorySlug = categorySlugBase;
+    let suffix = 1;
+
+    while (true) {
+      const [slugRows] = await connection.query(
+        'SELECT id FROM categories WHERE slug = ? LIMIT 1',
+        [categorySlug]
+      );
+
+      if (slugRows.length === 0) break;
+      suffix += 1;
+      categorySlug = `${categorySlugBase}-${suffix}`;
+    }
+
+    await connection.query(
+      'INSERT INTO categories (id, name, slug) VALUES (?, ?, ?)',
+      [nextCategoryId, categoryName, categorySlug]
+    );
+
+    connection.release();
+
+    return res.status(201).json({
+      message: 'Kategori berhasil ditambahkan',
+      category: { id: nextCategoryId, name: categoryName, slug: categorySlug },
+    });
+  } catch (error) {
+    if (connection) {
+      connection.release();
+    }
+    console.error('Error creating category:', error);
+    return res.status(500).json({ error: 'Gagal menambahkan kategori' });
+  }
+});
+
 // GET /products/:id - Fetch single product with variants
 app.get('/products/:id', async (req, res) => {
   try {
