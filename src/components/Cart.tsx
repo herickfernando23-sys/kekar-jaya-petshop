@@ -272,13 +272,19 @@ export function Cart() {
 
   const [isSyncing, setIsSyncing] = React.useState(false);
 
+  React.useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try { console.debug('Cart isOpen ->', isOpen); } catch (e) {}
+    }
+  }, [isOpen]);
+
   return (
     <>
       {/* Floating Cart Button */}
       <motion.button
         onClick={() => setIsOpen((prev) => !prev)}
         className="cart-fab fixed w-14 h-14 rounded-full flex items-center justify-center shadow-2xl hover:shadow-green-500/50 transition-all group"
-        style={{ zIndex: 10003 }}
+        style={{ zIndex: 30001 }}
         initial={{ scale: 0 }}
         animate={{ scale: 1 }}
         whileHover={{ scale: 1.1 }}
@@ -338,7 +344,7 @@ export function Cart() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               className="cart-backdrop fixed inset-0"
-                style={{ backgroundColor: 'rgba(15, 23, 42, 0.42)', zIndex: 10000 }}
+                style={{ backgroundColor: 'rgba(15, 23, 42, 0.52)', zIndex: 20000 }}
               onClick={() => setIsOpen(false)}
             />
 
@@ -359,7 +365,7 @@ export function Cart() {
                  margin: 0,
                  maxHeight: 'calc(100dvh - 48px)',
                  borderRadius: '1.25rem',
-                 zIndex: 20001,
+                 zIndex: 30002,
                  borderColor: '#fed7aa',
                  backgroundColor: '#ffffff'
                } : {
