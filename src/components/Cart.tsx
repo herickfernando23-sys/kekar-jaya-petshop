@@ -221,6 +221,9 @@ export function Cart() {
         console.log('[DEBUG] cart-panel element:', panel);
         console.log('[DEBUG] cart-panel rect:', panel?.getBoundingClientRect());
         console.log('[DEBUG] cart-backdrop rect:', backdrop?.getBoundingClientRect());
+        if (panel && typeof (panel as HTMLElement).scrollIntoView === 'function') {
+          try { (panel as HTMLElement).scrollIntoView({ behavior: 'smooth', block: 'end' }); } catch(e) {}
+        }
       } catch (e) {
         console.warn('[DEBUG] failed to inspect cart elements', e);
       }
