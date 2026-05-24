@@ -223,32 +223,16 @@ export function ProductCatalog() {
             })),
           }));
 
-          let extraLocalProducts: any[] = [];
-          try {
-            const rawStored = JSON.parse(localStorage.getItem(PRODUCT_STORAGE_KEY) || '[]');
-            if (Array.isArray(rawStored)) {
-              extraLocalProducts = rawStored.filter((item: any) => (
-                isValidStoredProduct(item) &&
-                !apiIds.has(item.id) &&
-                !defaultLocalIds.has(item.id) &&
-                !deletedIds.has(item.id)
-              ));
-            }
-          } catch {
-            extraLocalProducts = [];
-          }
-
-          const mergedStorageProducts = [...productsForStorage, ...missingDefaultStorageProducts, ...extraLocalProducts];
+          const mergedStorageProducts = [...productsForStorage, ...missingDefaultStorageProducts];
           localStorage.setItem(PRODUCT_STORAGE_KEY, JSON.stringify(mergedStorageProducts));
 
           // Show API products + local fallback products + extra admin products in the website catalog.
           const missingDefaultCatalogProducts = defaultCatalogProducts.filter(
             (item) => !apiIds.has(item.id) && !deletedIds.has(item.id)
           );
-          const extraCatalogProducts = mapStoredProductsToCatalog(extraLocalProducts);
           nextProducts = Array.from(
             new Map(
-              [...mapped, ...missingDefaultCatalogProducts, ...extraCatalogProducts].map((item) => [item.id, item])
+              [...mapped, ...missingDefaultCatalogProducts].map((item) => [item.id, item])
             ).values()
           );
         }
