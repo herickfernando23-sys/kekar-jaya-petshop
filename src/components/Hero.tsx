@@ -12,7 +12,7 @@ export function Hero() {
   return (
     <section
       id="hero"
-      className="pt-24 overflow-hidden"
+      className="pt-28 sm:pt-24 overflow-hidden"
       style={{
         background: '#ffffff',
       }}
