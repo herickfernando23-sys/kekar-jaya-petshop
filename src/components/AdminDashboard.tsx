@@ -53,6 +53,7 @@ type AdminOrder = {
 };
 
 const ADMIN_CUSTOM_CATEGORIES_KEY = 'adminCustomCategories';
+const ADMIN_ORDERS_CACHE_KEY = 'adminOrdersCache';
 const UNDO_DELETE_WINDOW_MS = 5000;
 const DEFAULT_CATEGORY_KEYS = new Set([
   'makanan kucing',
@@ -112,6 +113,44 @@ const AdminDashboard = () => {
     event.currentTarget.blur();
   };
 
+  const mapServerProductToLocal = (item: any): Product => ({
+    id: Number(item.id),
+    name: item.name,
+    category: item.category_name || 'Makanan Kucing',
+    price: Number(item.base_price) || 0,
+    stock: Number(item.stock) || 0,
+    description: item.description || '',
+    image: item.image_url || '/images/whiskas.jpg',
+    variants: Array.isArray(item.variants)
+      ? item.variants.map((variant: any) => ({
+          name: variant.name,
+          price: Number(variant.price) || 0,
+          stock: Number(variant.stock) || 0,
+          image: variant.image_url || variant.image,
+        }))
+      : [],
+  });
+
+  const readCachedOrders = (): AdminOrder[] => {
+    try {
+      const raw = localStorage.getItem(ADMIN_ORDERS_CACHE_KEY);
+      if (!raw) return [];
+
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  };
+
+  const writeCachedOrders = (nextOrders: AdminOrder[]) => {
+    try {
+      localStorage.setItem(ADMIN_ORDERS_CACHE_KEY, JSON.stringify(nextOrders));
+    } catch {
+      // ignore storage failures
+    }
+  };
+
   const syncProductsFromServer = async () => {
     try {
       const response = await fetch(`${apiBaseUrl}/products?t=${Date.now()}`);
@@ -124,29 +163,32 @@ const AdminDashboard = () => {
         return;
       }
 
-      const mappedProducts: Product[] = data.map((item: any) => ({
-        id: Number(item.id),
-        name: item.name,
-        category: item.category_name || 'Makanan Kucing',
-        price: Number(item.base_price) || 0,
-        stock: Number(item.stock) || 0,
-        description: item.description || '',
-        image: item.image_url || '/images/whiskas.jpg',
-        variants: Array.isArray(item.variants)
-          ? item.variants.map((variant: any) => ({
-              name: variant.name,
-              price: Number(variant.price) || 0,
-              stock: Number(variant.stock) || 0,
-              image: variant.image_url || variant.image,
-            }))
-          : [],
-      }));
+      const mappedProducts: Product[] = data.map(mapServerProductToLocal);
+      const deletedIds = new Set<number>(
+        JSON.parse(localStorage.getItem(DELETED_PRODUCT_IDS_KEY) || '[]') as number[]
+      );
 
-      setProducts(mappedProducts);
-      localStorage.setItem(PRODUCT_STORAGE_KEY, JSON.stringify(mappedProducts));
-      localStorage.setItem(DELETED_PRODUCT_IDS_KEY, '[]');
+      let cachedProducts: Product[] = [];
+      try {
+        cachedProducts = getStoredProducts();
+      } catch {
+        cachedProducts = [];
+      }
+
+      const serverIds = new Set<number>(mappedProducts.map((item) => item.id));
+      const extraCachedProducts = cachedProducts.filter(
+        (product) => !serverIds.has(product.id) && !deletedIds.has(product.id)
+      );
+
+      const mergedProducts = Array.from(
+        new Map([...mappedProducts, ...extraCachedProducts].map((product) => [product.id, product])).values()
+      );
+
+      setProducts(mergedProducts);
+      localStorage.setItem(PRODUCT_STORAGE_KEY, JSON.stringify(mergedProducts));
+      window.dispatchEvent(new Event('products-updated'));
     } catch {
-      // Keep local data when backend is unavailable.
+      // Keep the current cached data when backend is unavailable.
     }
   };
 
@@ -196,9 +238,16 @@ const AdminDashboard = () => {
       }));
 
       setOrders(mappedOrders);
+      writeCachedOrders(mappedOrders);
     } catch (error: any) {
-      setOrders([]);
-      setOrdersError(error?.message || 'Gagal memuat daftar order.');
+      const cachedOrders = readCachedOrders();
+      if (cachedOrders.length > 0) {
+        setOrders(cachedOrders);
+        setOrdersError('Backend order sedang tidak terjangkau, memakai data cached terakhir.');
+      } else {
+        setOrders([]);
+        setOrdersError(error?.message || 'Backend order belum tersedia.');
+      }
     } finally {
       setOrdersLoading(false);
     }
@@ -308,11 +357,6 @@ const AdminDashboard = () => {
 
   // Listen for product updates from CartContext or other sources
   useEffect(() => {
-    // Hapus cache produk dan ID terhapus setiap kali halaman admin dibuka
-    localStorage.removeItem(PRODUCT_STORAGE_KEY);
-    localStorage.removeItem(DELETED_PRODUCT_IDS_KEY);
-    setProducts([]);
-
     const handleProductsUpdated = () => {
       setProducts(getStoredProducts());
     };
@@ -618,7 +662,32 @@ const AdminDashboard = () => {
       });
       setIsAddProductOpen(false);
     } catch (error: any) {
-      window.alert(error?.message || 'Gagal menambahkan produk.');
+      const fallbackProduct: Product = {
+        id: Date.now(),
+        name: payload.name,
+        category: payload.category,
+        price: payload.price,
+        stock: payload.stock,
+        description: payload.description,
+        image: payload.image,
+        variants: [],
+      };
+
+      const updatedProducts = [fallbackProduct, ...products.filter((product) => product.id !== fallbackProduct.id)];
+      setProducts(updatedProducts);
+      localStorage.setItem(PRODUCT_STORAGE_KEY, JSON.stringify(updatedProducts));
+      window.dispatchEvent(new Event('products-updated'));
+      setSelectedCategory(fallbackProduct.category);
+      setNewProduct({
+        name: '',
+        category: 'Makanan Kucing',
+        price: 0,
+        stock: 0,
+        description: '',
+        image: '/images/whiskas.jpg',
+      });
+      setIsAddProductOpen(false);
+      window.alert('Server belum terjangkau, produk disimpan di browser sementara. Redeploy backend atau isi VITE_API_BASE_URL agar tersimpan ke server.');
     }
   };
 
