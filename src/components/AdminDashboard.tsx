@@ -243,7 +243,7 @@ const AdminDashboard = () => {
       const cachedOrders = readCachedOrders();
       if (cachedOrders.length > 0) {
         setOrders(cachedOrders);
-        setOrdersError('Backend order sedang tidak terjangkau, memakai data tersimpan terakhir.');
+        setOrdersError('');
       } else {
         setOrders([]);
         setOrdersError('Belum ada data order tersimpan untuk ditampilkan.');

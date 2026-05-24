@@ -25,6 +25,7 @@ export function Cart() {
   const CHECKOUT_DUPLICATE_WINDOW_MS = 90_000;
   const LAST_CHECKOUT_SENT_AT_KEY = 'lastCheckoutSentAt';
   const LAST_CHECKOUT_FINGERPRINT_KEY = 'lastCheckoutFingerprint';
+  const ADMIN_ORDERS_CACHE_KEY = 'adminOrdersCache';
 
   const parsePrice = (price: string) => parseInt(price.replace(/[^\d]/g, ''), 10) || 0;
   const shortenText = (value: string, maxLength = 42) => (
@@ -78,6 +79,18 @@ export function Cart() {
     notificationTimeoutRef.current = window.setTimeout(() => {
       setNotification(null);
     }, duration);
+  };
+
+  const writeCachedAdminOrder = (cachedOrder: any) => {
+    try {
+      const raw = localStorage.getItem(ADMIN_ORDERS_CACHE_KEY);
+      const existingOrders = raw ? JSON.parse(raw) : [];
+      const normalizedOrders = Array.isArray(existingOrders) ? existingOrders : [];
+      const filteredOrders = normalizedOrders.filter((order) => order?.order_number !== cachedOrder.order_number);
+      localStorage.setItem(ADMIN_ORDERS_CACHE_KEY, JSON.stringify([cachedOrder, ...filteredOrders]));
+    } catch {
+      // ignore storage failures
+    }
   };
 
   const handleCheckoutWhatsApp = async () => {
@@ -163,10 +176,39 @@ export function Cart() {
         }
       })
       .catch((error: any) => {
+        const cachedOrder = {
+          id: Number(`-${Date.now()}`),
+          order_number: `LOCAL-${Date.now()}`,
+          customer_id: 0,
+          status: 'pending',
+          total_amount: cart.reduce((sum, item) => sum + parsePrice(item.price) * item.quantity, 0),
+          notes: checkoutToken,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          customer_name: 'Pelanggan',
+          customer_phone: '-',
+          customer_email: null,
+          customer_address: null,
+          items: cart.map((item, index) => ({
+            id: Number(`-${Date.now()}-${index}`),
+            order_id: Number(`-${Date.now()}`),
+            product_id: item.id,
+            variant_id: item.variantId ?? null,
+            product_name_snapshot: item.name,
+            variant_name_snapshot: item.variant ?? null,
+            price_snapshot: parsePrice(item.price),
+            quantity: item.quantity,
+            subtotal: parsePrice(item.price) * item.quantity,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          })),
+        };
+
+        writeCachedAdminOrder(cachedOrder);
         showCheckoutNotification(
           error?.message === 'Duplicate checkout detected'
             ? 'Pesanan yang sama baru saja dibuat. Tunggu sebentar sebelum kirim ulang.'
-            : 'Pesanan WA terkirim, tetapi penyimpanan order gagal. Cek koneksi lalu coba lagi.',
+            : 'Pesanan tersimpan sementara di browser karena server belum terjangkau.',
           4200
         );
       })

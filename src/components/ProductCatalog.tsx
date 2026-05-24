@@ -143,6 +143,8 @@ export function ProductCatalog() {
       })),
     }));
 
+  const defaultCatalogProducts = mapStoredProductsToCatalog(localProducts as any[]);
+
   useEffect(() => {
     const loadProducts = async (showLoader = false) => {
       try {
@@ -169,7 +171,6 @@ export function ProductCatalog() {
         }
 
         const mapped = mapApiProducts(data);
-        const defaultCatalogProducts = mapStoredProductsToCatalog(localProducts as any[]);
         let nextProducts = mapped;
         // Save with numeric schema expected by getStoredProducts/CartContext.
         if (typeof window !== 'undefined') {
@@ -191,6 +192,7 @@ export function ProductCatalog() {
 
           // Keep local fallback products and extra admin products so the catalog stays complete.
           const apiIds = new Set<number>(productsForStorage.map((item: any) => item.id));
+          const defaultLocalIds = new Set<number>(localProducts.map((item) => item.id));
           const deletedIds = new Set<number>(
             JSON.parse(localStorage.getItem(DELETED_PRODUCT_IDS_KEY) || '[]') as number[]
           );
@@ -249,7 +251,7 @@ export function ProductCatalog() {
         window.dispatchEvent(new Event('products-updated'));
       } catch (err) {
         console.error('Gagal fetch produk dari backend:', err);
-        setProducts(localProducts);
+        setProducts(defaultCatalogProducts);
         setProductSource('local');
         setProductLoadNote('Backend tidak aktif, menampilkan data produk lokal.');
         window.dispatchEvent(new Event('products-updated'));
