@@ -687,7 +687,7 @@ const AdminDashboard = () => {
         image: '/images/whiskas.jpg',
       });
       setIsAddProductOpen(false);
-      window.alert('Server belum terjangkau, produk disimpan di browser sementara. Redeploy backend atau isi VITE_API_BASE_URL agar tersimpan ke server.');
+      console.warn('Server belum terjangkau, produk disimpan di browser sementara.');
     }
   };
 
