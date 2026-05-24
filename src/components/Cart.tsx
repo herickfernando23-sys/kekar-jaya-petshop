@@ -222,24 +222,14 @@ export function Cart() {
     if (!isOpen) return;
 
     let didDispatch = false;
-    // If context shows empty but localStorage has items, request provider to resync
-    try {
-      if (getTotalItems() === 0) {
-        const raw = typeof window !== 'undefined' ? localStorage.getItem('cartItems') : null;
-        const parsed = raw ? JSON.parse(raw) : [];
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          // show syncing UI until provider replies
-          setIsSyncing(true);
-          window.dispatchEvent(new CustomEvent('cart-sync'));
-          didDispatch = true;
-        }
-      }
-    } catch (e) {
-      // ignore
-    }
+    let syncTimeoutId: number | null = null;
 
     const onSynced = () => {
       setIsSyncing(false);
+      if (syncTimeoutId !== null) {
+        window.clearTimeout(syncTimeoutId);
+        syncTimeoutId = null;
+      }
       // ensure panel visible
       requestAnimationFrame(() => {
         try {
@@ -251,9 +241,29 @@ export function Cart() {
       });
     };
 
-    if (didDispatch) {
-      window.addEventListener('cart-synced', onSynced as EventListener);
-    } else {
+    // Register listener first to avoid missing a very fast cart-synced response.
+    window.addEventListener('cart-synced', onSynced as EventListener);
+
+    // If context shows empty but localStorage has items, request provider to resync.
+    try {
+      if (getTotalItems() === 0) {
+        const raw = typeof window !== 'undefined' ? localStorage.getItem('cartItems') : null;
+        const parsed = raw ? JSON.parse(raw) : [];
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setIsSyncing(true);
+          window.dispatchEvent(new CustomEvent('cart-sync'));
+          didDispatch = true;
+          syncTimeoutId = window.setTimeout(() => {
+            setIsSyncing(false);
+          }, 1200);
+        }
+      }
+    } catch (e) {
+      // ignore
+    }
+
+    if (!didDispatch) {
+      setIsSyncing(false);
       // no dispatch, just ensure panel in view
       requestAnimationFrame(() => {
         try {
@@ -266,6 +276,9 @@ export function Cart() {
     }
 
     return () => {
+      if (syncTimeoutId !== null) {
+        window.clearTimeout(syncTimeoutId);
+      }
       try { window.removeEventListener('cart-synced', onSynced as EventListener); } catch {}
     };
   }, [isOpen]);
