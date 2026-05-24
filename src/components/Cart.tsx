@@ -273,7 +273,7 @@ export function Cart() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0"
+              className="cart-backdrop fixed inset-0"
               style={{ backgroundColor: 'rgba(15, 23, 42, 0.42)', zIndex: 98 }}
               onClick={() => setIsOpen(false)}
             />

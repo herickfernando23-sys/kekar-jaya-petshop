@@ -493,6 +493,10 @@
     max-height: calc(100vh - 96px);
   }
 
+  .public-site .cart-backdrop {
+    background-color: rgba(15, 23, 42, 0.42);
+  }
+
   @media (max-width: 639px) {
     .public-site .cart-fab {
       right: auto;
@@ -502,9 +506,17 @@
     }
 
     .public-site .cart-panel {
-      top: 96px;
-      right: 14px;
-      max-height: calc(100vh - 96px);
+      left: 0.75rem;
+      right: 0.75rem;
+      top: auto;
+      bottom: 5.25rem;
+      width: auto;
+      max-height: calc(100vh - 7rem);
+      border-radius: 1.5rem 1.5rem 1rem 1rem;
+    }
+
+    .public-site .cart-backdrop {
+      background-color: rgba(15, 23, 42, 0.18);
     }
   }
 
