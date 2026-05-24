@@ -2,7 +2,7 @@ const pawPrintBackgroundUrl = 'https://img.magnific.com/free-vector/gradient-paw
 
 export function AnimatedStripeBand() {
   return (
-    <section className="relative left-1/2 right-1/2 mt-10 sm:mt-14 lg:mt-16 w-screen -translate-x-1/2 overflow-hidden">
+    <section className="relative mt-10 sm:mt-14 lg:mt-16 w-full overflow-hidden">
       <div className="overflow-hidden border-y border-orange-100 bg-white/75 backdrop-blur-sm shadow-[0_10px_24px_rgba(15,23,42,0.06)]">
         <svg
           className="block h-16 w-full sm:h-20"

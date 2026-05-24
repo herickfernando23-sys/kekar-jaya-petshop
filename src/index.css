@@ -458,6 +458,7 @@
   .public-site {
     font-family: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
     font-feature-settings: 'ss01' on, 'cv01' on;
+    overflow-x: clip;
   }
 
   .public-site h1,

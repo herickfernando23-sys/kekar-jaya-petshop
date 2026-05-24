@@ -41,9 +41,9 @@ export function Navbar() {
               alt="Toko Kekar Jaya"
               className="w-10 h-10 rounded-full object-cover"
             />
-            <div className="flex flex-col items-start">
-              <span className="font-bold text-lg text-gray-900">Toko Kekar Jaya</span>
-              <span className="text-xs" style={{ color: '#f97316', letterSpacing: '0.08em' }}>PETSHOP SPECIALIST</span>
+            <div className="flex min-w-0 flex-col items-start">
+              <span className="font-bold text-base sm:text-lg text-gray-900 leading-tight">Toko Kekar Jaya</span>
+              <span className="hidden text-xs sm:block" style={{ color: '#f97316', letterSpacing: '0.08em' }}>PETSHOP SPECIALIST</span>
             </div>
           </button>
 
