@@ -12,7 +12,7 @@ export function Hero() {
   return (
     <section
       id="hero"
-      className="pt-36 sm:pt-24 overflow-hidden"
+      className="pt-40 sm:pt-24 overflow-hidden"
       style={{
         background: '#ffffff',
       }}
@@ -78,7 +78,7 @@ export function Hero() {
           <div data-reveal className="reveal-on-scroll relative" style={{ transitionDelay: '120ms' }}>
             <div className="absolute -top-10 -right-8 w-72 h-72 rounded-full blur-3xl opacity-40" style={{ backgroundColor: '#fdba74' }}></div>
             <div
-              className="relative rounded-3xl overflow-hidden"
+              className="relative aspect-[4/5] sm:aspect-auto rounded-3xl overflow-hidden"
               style={{
                 border: '1px solid rgba(251, 146, 60, 0.35)',
                 boxShadow: '0 26px 45px rgba(15, 23, 42, 0.12)'
@@ -87,7 +87,7 @@ export function Hero() {
               <ImageWithFallback
                 src="https://images.unsplash.com/photo-1720291062255-1aa606aac7e1?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxjdXRlJTIwaGVhbHRoeSUyMG9yYW5nZSUyMGNhdCUyMHBvcnRyYWl0fGVufDF8fHx8MTc3MDc4NDkwMnww&ixlib=rb-4.1.0&q=80&w=1080"
                 alt="Kucing Sehat dan Bahagia"
-                className="w-full h-auto object-cover"
+                className="w-full h-full object-cover"
               />
             </div>
             <div

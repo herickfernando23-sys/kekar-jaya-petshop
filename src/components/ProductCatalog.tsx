@@ -662,12 +662,13 @@ export function ProductCatalog() {
                           }
 
                         // Notify cart and request auto-open so users can review immediately.
+                        const shouldAutoOpenCart = typeof window !== 'undefined' ? window.innerWidth >= 640 : true;
                         window.dispatchEvent(
                           new CustomEvent('cart-notify', {
                             detail: {
                               productName: variant?.name ?? product.name,
                               quantity: targetQuantity,
-                              autoOpen: true,
+                              autoOpen: shouldAutoOpenCart,
                             },
                           })
                         );
