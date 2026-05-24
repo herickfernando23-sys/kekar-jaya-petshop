@@ -20,7 +20,7 @@ export function Navbar() {
   }
 
   return (
-    <nav className="left-0 right-0 z-50 md:fixed md:top-4">
+    <nav className="fixed top-4 left-0 right-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div
           className="flex justify-between items-center h-16 rounded-full px-4 sm:px-6"
