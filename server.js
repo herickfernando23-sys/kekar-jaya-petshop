@@ -7,6 +7,11 @@ const app = express();
 const path = require('path');
 const PORT = process.env.PORT || 5000;
 
+const allowedOrigins = (process.env.CORS_ORIGIN || '')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
 const slugify = (value = '') => value
   .toString()
   .trim()
@@ -68,7 +73,7 @@ const ensureCategoryId = async (connection, categoryName) => {
 };
 
 // Middleware
-app.use(cors());
+app.use(cors(allowedOrigins.length > 0 ? { origin: allowedOrigins } : {}));
 app.use(express.json());
 // Serve static images
 app.use('/images', express.static(path.join(__dirname, 'public', 'images')));
@@ -79,10 +84,11 @@ app.use(uploadImageRouter);
 
 // MySQL Connection Pool
 const pool = mysql.createPool({
-  host: process.env.DB_HOST || 'localhost',
-  user: process.env.DB_USER || 'root',
-  password: process.env.DB_PASSWORD || '',
-  database: process.env.DB_NAME || 'kekar_jaya_petshop',
+  host: process.env.DB_HOST || process.env.MYSQLHOST || 'localhost',
+  port: Number(process.env.DB_PORT || process.env.MYSQLPORT || 3306),
+  user: process.env.DB_USER || process.env.MYSQLUSER || 'root',
+  password: process.env.DB_PASSWORD || process.env.MYSQLPASSWORD || '',
+  database: process.env.DB_NAME || process.env.MYSQLDATABASE || 'kekar_jaya_petshop',
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
@@ -152,6 +158,15 @@ const FALLBACK_CATEGORIES = [
 // Health check
 app.get('/health', (req, res) => {
   res.json({ status: 'API running ✅', timestamp: new Date() });
+});
+
+app.get('/', (req, res) => {
+  res.json({
+    name: 'KEKAR JAYA Backend API',
+    status: 'running',
+    health: '/health',
+    products: '/products',
+  });
 });
 
 // GET /products - Fetch all products with variants

@@ -14,10 +14,10 @@ Steps
    - Build Command: `npm run build`
    - Output Directory: `build`
 
-3. Environment Variable (opsional sekarang)
+3. Environment Variable
    - Key: `VITE_API_BASE_URL`
-   - Value: (kosong atau isi `https://your-backend-url` nanti)
-   - Jika tidak ada backend produksi saat ini, biarkan kosong — frontend akan mencoba `http://localhost:5000` pada mesin pengunjung dan katalog tidak akan tampil sampai backend tersedia.
+   - Value: URL backend Render, misalnya `https://kekar-jaya-backend.onrender.com`
+   - Jika dibiarkan kosong, frontend hanya akan mencoba `http://localhost:5000` dan itu tidak akan bekerja di web publik.
 
 4. Deploy
    - Klik Deploy. Vercel akan membuat deployment dan menunjukkan URL gratis (subdomain `.vercel.app`).
@@ -43,7 +43,7 @@ npx serve build -l 5000
 ```
 
 Notes & recommendations
-- Backend nanti bisa dideploy terpisah — setelah dapat URL backend, set `VITE_API_BASE_URL` di Vercel ke URL backend tersebut dan lakukan redeploy.
+- Backend sudah disiapkan untuk dijalankan di Render. Setelah deploy selesai, set `VITE_API_BASE_URL` di Vercel ke URL backend tersebut dan lakukan redeploy.
 - Karena `upload-image.js` menyimpan ke disk lokal, upload gambar hanya akan bekerja jika backend di-host pada server dengan disk persistent (Render/Render Persistent Disk/VPS). Gunakan penyimpanan cloud jika perlu.
 - Tunda aktivasi layanan berbayar sampai mendekati presentasi untuk menghindari trial terbuang.
 
