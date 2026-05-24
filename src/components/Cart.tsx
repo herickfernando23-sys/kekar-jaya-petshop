@@ -209,6 +209,24 @@ export function Cart() {
     };
   }, []);
 
+  React.useEffect(() => {
+    console.log('[DEBUG] Cart isOpen ->', isOpen);
+    if (!isOpen) return;
+
+    // Give layout a frame to settle then log bounds to help debug offscreen rendering
+    requestAnimationFrame(() => {
+      try {
+        const panel = document.querySelector('.cart-panel');
+        const backdrop = document.querySelector('.cart-backdrop');
+        console.log('[DEBUG] cart-panel element:', panel);
+        console.log('[DEBUG] cart-panel rect:', panel?.getBoundingClientRect());
+        console.log('[DEBUG] cart-backdrop rect:', backdrop?.getBoundingClientRect());
+      } catch (e) {
+        console.warn('[DEBUG] failed to inspect cart elements', e);
+      }
+    });
+  }, [isOpen]);
+
   return (
     <>
       {/* Floating Cart Button */}
@@ -273,7 +291,7 @@ export function Cart() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="cart-backdrop fixed inset-0"
+              className="cart-backdrop fixed inset-0 debug-cart-backdrop"
               style={{ backgroundColor: 'rgba(15, 23, 42, 0.42)', zIndex: 109 }}
               onClick={() => setIsOpen(false)}
             />
@@ -284,7 +302,7 @@ export function Cart() {
               animate={{ opacity: 1, x: 0, y: 0 }}
               exit={{ opacity: 0, x: -18, y: 18 }}
               transition={{ duration: 0.25, ease: 'easeOut' }}
-              className="cart-panel fixed bg-white/95 backdrop-blur rounded-2xl shadow-2xl border overflow-hidden flex flex-col"
+              className="cart-panel fixed bg-white/95 backdrop-blur rounded-2xl shadow-2xl border overflow-hidden flex flex-col debug-cart-panel"
               style={{
                 width: 'min(420px, calc(100vw - 28px))',
                 zIndex: 111,

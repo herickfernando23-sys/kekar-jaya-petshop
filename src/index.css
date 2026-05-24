@@ -518,6 +518,16 @@
     .public-site .cart-backdrop {
       background-color: rgba(15, 23, 42, 0.18);
     }
+
+    /* Debug helpers: visible only on small screens to diagnose overlay/panel placement */
+    .public-site .debug-cart-panel {
+      outline: 3px solid rgba(16, 185, 129, 0.9);
+      box-shadow: 0 12px 40px rgba(0,0,0,0.45);
+    }
+
+    .public-site .debug-cart-backdrop {
+      background-color: rgba(220, 38, 38, 0.12) !important;
+    }
   }
 
   .pointer-events-none {
