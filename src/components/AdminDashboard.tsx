@@ -137,7 +137,9 @@ const AdminDashboard = () => {
       if (!raw) return [];
 
       const parsed = JSON.parse(raw);
-      return Array.isArray(parsed) ? parsed : [];
+      if (!Array.isArray(parsed)) return [];
+
+      return parsed.filter((order) => Number.isInteger(order?.id) && Number(order.id) > 0);
     } catch {
       return [];
     }
@@ -540,10 +542,12 @@ const AdminDashboard = () => {
         }
       }
     } catch (error: any) {
-      const isServerUnavailable = error instanceof TypeError || /fetch/i.test(error?.message || '');
-      if (!serverMissing && !isServerUnavailable) {
-        window.alert(error?.message || 'Gagal menghapus kategori di server.');
-        return;
+      if (!serverMissing) {
+        const isServerUnavailable = error instanceof TypeError || /fetch/i.test(error?.message || '');
+        if (!isServerUnavailable) {
+          // Even if the server rejects the request, keep the local category deletion path alive.
+          console.warn(error?.message || 'Gagal menghapus kategori di server.');
+        }
       }
     }
 
@@ -910,7 +914,28 @@ const AdminDashboard = () => {
       setEditingData(null);
       setEditPanelOffsetTop(0);
     } catch (error: any) {
-      window.alert(error?.message || 'Gagal menyimpan perubahan produk.');
+      const fallbackUpdatedProduct: Product = {
+        ...editingProduct,
+        name: payload.name,
+        category: payload.category,
+        price: payload.variants && payload.variants.length > 0 ? payload.variants[0].price : payload.price,
+        stock: payload.stock,
+        description: payload.description,
+        image: payload.image,
+        variants: normalizedVariants || [],
+      };
+
+      const updatedProducts = products.map((product) =>
+        product.id === editingProduct.id ? fallbackUpdatedProduct : product
+      );
+
+      setProducts(updatedProducts);
+      localStorage.setItem(PRODUCT_STORAGE_KEY, JSON.stringify(updatedProducts));
+      window.dispatchEvent(new Event('products-updated'));
+      setEditingProduct(null);
+      setEditingData(null);
+      setEditPanelOffsetTop(0);
+      window.console.warn('Gagal simpan ke server, perubahan disimpan di browser sementara.');
     }
   };
 
