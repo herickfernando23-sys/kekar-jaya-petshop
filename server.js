@@ -149,11 +149,13 @@ const connectionOptions = {
   queueLimit: 0,
 };
 
-// If a CA certificate is provided via DB_SSL_CA (PEM string), enable SSL.
-// Useful for providers like Aiven which require TLS. Paste full PEM into
-// the `DB_SSL_CA` env var on Render and we'll pass it to mysql2.
+// If a CA certificate is provided via DB_SSL_CA (PEM string), use it.
+// Useful for providers like Aiven which require TLS and often use self-signed CA.
 if (process.env.DB_SSL_CA) {
   connectionOptions.ssl = { ca: process.env.DB_SSL_CA };
+} else if (process.env.DB_SSL_INSECURE === 'true') {
+  // Unsafe fallback for testing only; do not use in production unless necessary.
+  connectionOptions.ssl = { rejectUnauthorized: false };
 }
 
 const pool = mysql.createPool(connectionOptions);
