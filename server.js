@@ -58,16 +58,29 @@ const buildMysqlConnectionConfig = () => {
   if (databaseUrl) {
     try {
       const parsedUrl = new URL(databaseUrl);
+      const urlDatabase = decodeURIComponent(parsedUrl.pathname.replace(/^\//, '') || '');
+      const envDatabase = process.env.DB_NAME || process.env.MYSQLDATABASE || '';
+      const resolvedDatabase = envDatabase || urlDatabase || 'kekar_jaya_petshop';
+
+      if (!envDatabase && urlDatabase === 'defaultdb') {
+        console.warn('⚠️  Database name resolved as defaultdb from DATABASE_URL. Set DB_NAME to the correct database name if your schema is not in defaultdb.');
+      }
+
       return {
         host: parsedUrl.hostname,
         port: Number(parsedUrl.port || 3306),
         user: decodeURIComponent(parsedUrl.username || process.env.DB_USER || process.env.MYSQLUSER || 'root'),
         password: decodeURIComponent(parsedUrl.password || process.env.DB_PASSWORD || process.env.MYSQLPASSWORD || ''),
-        database: decodeURIComponent(parsedUrl.pathname.replace(/^\//, '') || process.env.DB_NAME || process.env.MYSQLDATABASE || 'kekar_jaya_petshop'),
+        database: resolvedDatabase,
       };
     } catch (error) {
       console.warn('⚠️  Invalid MySQL URL config, falling back to individual env vars:', error?.message || error);
     }
+  }
+
+  const resolvedDatabase = process.env.DB_NAME || process.env.MYSQLDATABASE || 'kekar_jaya_petshop';
+  if (resolvedDatabase === 'defaultdb') {
+    console.warn('⚠️  Database name resolved as defaultdb. Set DB_NAME to the correct database name to avoid missing tables.');
   }
 
   return {
@@ -75,7 +88,7 @@ const buildMysqlConnectionConfig = () => {
     port: Number(process.env.DB_PORT || process.env.MYSQLPORT || 3306),
     user: process.env.DB_USER || process.env.MYSQLUSER || 'root',
     password: process.env.DB_PASSWORD || process.env.MYSQLPASSWORD || '',
-    database: process.env.DB_NAME || process.env.MYSQLDATABASE || 'kekar_jaya_petshop',
+    database: resolvedDatabase,
   };
 };
 
@@ -157,6 +170,7 @@ const sslInsecureEnabled = ['true', '1', 'yes', 'on'].includes(
 console.log('🔐 MySQL SSL config:', {
   host: connectionOptions.host,
   port: connectionOptions.port,
+  database: connectionOptions.database,
   sslCaProvided,
   sslInsecureEnabled,
 });
