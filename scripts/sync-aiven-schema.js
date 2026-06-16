@@ -361,6 +361,21 @@ const categories = [
   { name: 'Kandang Kucing', slug: 'kandang-kucing' },
 ];
 
+const sslCaProvided = Boolean(process.env.DB_SSL_CA && process.env.DB_SSL_CA.trim());
+const sslInsecureEnabled = ['true', '1', 'yes', 'on'].includes(
+  String(process.env.DB_SSL_INSECURE || '').trim().toLowerCase()
+);
+
+function buildSslOptions() {
+  if (sslCaProvided) {
+    return { ca: process.env.DB_SSL_CA, minVersion: 'TLSv1.2' };
+  }
+  if (sslInsecureEnabled) {
+    return { rejectUnauthorized: false, minVersion: 'TLSv1.2' };
+  }
+  return undefined;
+}
+
 async function createPool() {
   const databaseUrl = process.env.DATABASE_URL || process.env.MYSQL_URL || process.env.JAWSDB_URL || '';
 
@@ -375,7 +390,8 @@ async function createPool() {
       waitForConnections: true,
       connectionLimit: 10,
       queueLimit: 0,
-      ssl: process.env.DB_SSL_CA ? { ca: process.env.DB_SSL_CA } : undefined,
+      multipleStatements: true,
+      ssl: buildSslOptions(),
     });
   }
 
@@ -388,7 +404,8 @@ async function createPool() {
     waitForConnections: true,
     connectionLimit: 10,
     queueLimit: 0,
-    ssl: process.env.DB_SSL_CA ? { ca: process.env.DB_SSL_CA } : undefined,
+    multipleStatements: true,
+    ssl: buildSslOptions(),
   });
 }
 
