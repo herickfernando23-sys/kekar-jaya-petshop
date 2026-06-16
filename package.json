@@ -66,7 +66,8 @@
             "dev": "vite",
             "build": "vite build",
             "server": "node server.js",
-            "dev:all": "concurrently -k -n API,WEB -c green,cyan \"npm:server\" \"npm:dev\""
+            "dev:all": "concurrently -k -n API,WEB -c green,cyan \"npm:server\" \"npm:dev\"",
+            "sync-schema": "node scripts/sync-aiven-schema.js"
       },
       "description": "This is a code bundle for KEKAR JAYA. The original project is available at https://www.figma.com/design/PCHJ6Au0dA3g4gz3I0jaGV/KEKAR-JAYA.",
       "main": "index.js",
