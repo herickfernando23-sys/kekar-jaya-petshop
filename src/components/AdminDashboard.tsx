@@ -224,7 +224,7 @@ const AdminDashboard = () => {
 
   const syncProductsFromServer = async () => {
     try {
-          new Map([...mappedOrders, ...cachedOrders].map((order) => [orderMergeKey(order), order])).values()
+      const response = await fetch(`${apiBaseUrl}/products?t=${Date.now()}`);
       if (!response.ok) {
         return;
       }
