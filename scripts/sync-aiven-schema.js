@@ -4,6 +4,16 @@ const path = require('path');
 require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 
 const SCHEMA = `
+CREATE TABLE IF NOT EXISTS admins (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  username VARCHAR(100) NOT NULL UNIQUE,
+  full_name VARCHAR(150) NOT NULL,
+  password_hash VARCHAR(255) NOT NULL,
+  is_active TINYINT(1) NOT NULL DEFAULT 1,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB;
+
 CREATE TABLE IF NOT EXISTS categories (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   name VARCHAR(120) NOT NULL UNIQUE,
@@ -45,6 +55,59 @@ CREATE TABLE IF NOT EXISTS product_variants (
     ON DELETE CASCADE,
   UNIQUE KEY uq_variant_name_per_product (product_id, name),
   INDEX idx_variants_product_id (product_id)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS customers (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(150) NOT NULL,
+  phone VARCHAR(30) NOT NULL,
+  email VARCHAR(180) NULL,
+  address TEXT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_customers_phone (phone),
+  UNIQUE KEY uq_customers_email (email)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS orders (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  order_number VARCHAR(32) NOT NULL UNIQUE,
+  customer_id BIGINT UNSIGNED NOT NULL,
+  status ENUM('pending','confirmed','packed','shipped','completed','cancelled') NOT NULL DEFAULT 'pending',
+  total_amount INT UNSIGNED NOT NULL DEFAULT 0,
+  notes TEXT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT fk_orders_customer FOREIGN KEY (customer_id) REFERENCES customers(id)
+    ON UPDATE CASCADE
+    ON DELETE RESTRICT,
+  INDEX idx_orders_customer_id (customer_id),
+  INDEX idx_orders_status (status)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS order_items (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  order_id BIGINT UNSIGNED NOT NULL,
+  product_id BIGINT UNSIGNED NOT NULL,
+  variant_id BIGINT UNSIGNED NULL,
+  product_name_snapshot VARCHAR(220) NOT NULL,
+  variant_name_snapshot VARCHAR(220) NULL,
+  price_snapshot INT UNSIGNED NOT NULL,
+  quantity INT UNSIGNED NOT NULL,
+  subtotal INT UNSIGNED NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT fk_order_items_order FOREIGN KEY (order_id) REFERENCES orders(id)
+    ON UPDATE CASCADE
+    ON DELETE CASCADE,
+  CONSTRAINT fk_order_items_product FOREIGN KEY (product_id) REFERENCES products(id)
+    ON UPDATE CASCADE
+    ON DELETE RESTRICT,
+  CONSTRAINT fk_order_items_variant FOREIGN KEY (variant_id) REFERENCES product_variants(id)
+    ON UPDATE CASCADE
+    ON DELETE SET NULL,
+  INDEX idx_order_items_order_id (order_id),
+  INDEX idx_order_items_product_id (product_id)
 ) ENGINE=InnoDB;
 `;
 
