@@ -142,12 +142,21 @@ app.use(uploadImageRouter);
 
 // MySQL Connection Pool
 const mysqlConnectionConfig = buildMysqlConnectionConfig();
-const pool = mysql.createPool({
+const connectionOptions = {
   ...mysqlConnectionConfig,
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
-});
+};
+
+// If a CA certificate is provided via DB_SSL_CA (PEM string), enable SSL.
+// Useful for providers like Aiven which require TLS. Paste full PEM into
+// the `DB_SSL_CA` env var on Render and we'll pass it to mysql2.
+if (process.env.DB_SSL_CA) {
+  connectionOptions.ssl = { ca: process.env.DB_SSL_CA };
+}
+
+const pool = mysql.createPool(connectionOptions);
 
 // Fallback mock data when database is not available
 const FALLBACK_MOCK_DATA = [
